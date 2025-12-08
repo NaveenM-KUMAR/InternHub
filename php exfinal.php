@@ -1,0 +1,4432 @@
+
+<?php
+session_start();
+
+// Redirect to login page if user is not logged in
+if (!isset($_SESSION['email'])) {
+    header('Location: index.php'); // change this to your login page if different
+    exit;
+}
+
+// DB connection
+require_once 'config.php';
+
+// Get user name from session, fallback to "User"
+$name  = isset($_SESSION['name'])  ? $_SESSION['name']  : 'User';
+$email = isset($_SESSION['email']) ? $_SESSION['email'] : null;
+
+// 1) Get logged-in user's ID from `users` table
+$userId = null;
+if ($email) {
+    $stmt = $conn->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $stmt->bind_result($userId);
+    $stmt->fetch();
+    $stmt->close();
+}
+
+if (!$userId) {
+    // Safety: if user not found in DB, logout
+    header('Location: logout.php');
+    exit;
+}
+
+// 2) Load profile data from `user_profiles`
+$profile = [
+    'display_name'  => '',
+    'bio'           => '',
+    'github_url'    => '',
+    'linkedin_url'  => '',
+    'primary_role'  => '',
+    'primary_stack' => '',
+    'avatar_initial'=> ''
+];
+
+$stmt = $conn->prepare("
+    SELECT display_name, bio, github_url, linkedin_url, primary_role, primary_stack, avatar_initial
+    FROM user_profiles
+    WHERE user_id = ?
+    LIMIT 1
+");
+$stmt->bind_param("i", $userId);
+$stmt->execute();
+$stmt->store_result();
+
+if ($stmt->num_rows > 0) {
+    $stmt->bind_result(
+        $profile['display_name'],
+        $profile['bio'],
+        $profile['github_url'],
+        $profile['linkedin_url'],
+        $profile['primary_role'],
+        $profile['primary_stack'],
+        $profile['avatar_initial']
+    );
+    $stmt->fetch();
+}
+$stmt->close();
+
+// 3) Defaults for display name + avatar letter
+$displayName   = $profile['display_name']  !== '' ? $profile['display_name']  : $name;
+$avatarInitial = $profile['avatar_initial'] !== ''
+    ? $profile['avatar_initial']
+    : strtoupper(substr($displayName, 0, 1));
+
+    // 4) Flag: was profile just saved?
+$profileSaved = isset($_GET['profile_saved']) && $_GET['profile_saved'] === '1';
+
+?>
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Prep App - User Dashboard</title>
+
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <!-- ZegoCloud SDK will be loaded dynamically when needed -->
+
+    <style>
+       
+       
+       
+       
+       
+       /* BASE APP LAYOUT + SIDEBAR + PAGES */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
+        }
+        body.dark { background-color: #121212; color: #e0e0e0; }
+
+        .container { display: flex; min-height: 100vh; }
+
+        .sidebar {
+  width: 250px;
+  background: linear-gradient(135deg, #0a66c2, #8b5cf6);
+  color: white;
+  position: fixed;
+  top: 0; left: 0; height: 100vh;
+  padding: 20px;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+  transition: transform 0.3s;
+  z-index: 1000;
+}
+.sidebar.collapsed { transform: translateX(-100%); }
+
+.sidebar nav ul { list-style: none; }
+.sidebar nav a {
+  display: flex; align-items: center;
+  padding: 12px 15px;
+  text-decoration: none;
+  color: white;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  transition: background 0.3s, transform 0.2s;
+}
+.sidebar nav a:hover { background: rgba(255,255,255,0.15); transform: translateX(5px); }
+.sidebar nav a.active { background: rgba(255,255,255,0.25); font-weight: 600; }
+.sidebar nav a i { margin-right: 10px; width: 20px; height: 20px; }
+
+.hamburger {
+  display: none;
+  position: fixed; top: 20px; left: 20px;
+  background: #0a66c2; color: white;
+  border: none; padding: 10px;
+  border-radius: 8px; cursor: pointer;
+  z-index: 1001;
+}
+.hamburger:hover { background: #084a8a; }
+
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .main-content { margin-left: 0; }
+  .hamburger { display: block; }
+}
+
+        
+        .sidebar {
+            width: 250px;
+            background: linear-gradient(135deg, #0a66c2 0%, #8b5cf6 100%);
+            color: white;
+            position: fixed;
+            top: 0; left: 0;
+            height: 100vh;
+            padding: 20px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease-in-out;
+            z-index: 1000;
+        }
+        .sidebar.collapsed { transform: translateX(-100%); }
+
+        .sidebar .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        .sidebar .header i { margin-right: 10px; width: 24px; height: 24px; }
+        .sidebar h2 { font-size: 1.5rem; font-weight: 600; }
+
+        .sidebar .welcome {
+            text-align: center;
+            font-size: 0.95rem;
+            margin-bottom: 25px;
+            opacity: 0.9;
+        }
+
+        .sidebar nav ul { list-style: none; }
+        .sidebar nav li { margin-bottom: 10px; }
+
+        .sidebar nav a {
+            display: flex; align-items: center;
+            padding: 12px 15px;
+            text-decoration: none;
+            color: white;
+            border-radius: 8px;
+            transition: background-color 0.3s ease-in-out, transform 0.3s ease-in-out;
+            min-height: 44px; /* Large touch target */
+        }
+        .sidebar nav a:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+        .sidebar nav a.active {
+            background-color: rgba(255, 255, 255, 0.2);
+            font-weight: 600;
+        }
+        .sidebar nav a i { margin-right: 10px; width: 20px; height: 20px; }
+
+        .logout-btn {
+            position: absolute;
+            bottom: 80px; /* Positioned above dark mode toggle */
+            left: 20px;
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 1rem;
+            min-height: 44px;
+            padding: 10px;
+            border-radius: 8px;
+            transition: background-color 0.3s ease-in-out;
+            display: flex; align-items: center;
+        }
+        .logout-btn:hover { background-color: rgba(255, 255, 255, 0.1); }
+        .logout-btn i { margin-right: 10px; width: 20px; height: 20px; }
+
+        .dark-mode-toggle {
+            position: absolute;
+            bottom: 20px; left: 20px;
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 1rem;
+            min-height: 44px;
+            padding: 10px;
+            border-radius: 8px;
+            transition: background-color 0.3s ease-in-out;
+            display: flex; align-items: center;
+        }
+        .dark-mode-toggle:hover { background-color: rgba(255, 255, 255, 0.1); }
+        .dark-mode-toggle i { margin-right: 10px; width: 20px; height: 20px; }
+
+        .main-content {
+            flex: 1;
+            margin-left: 250px;
+            padding: 20px;
+            transition: margin-left 0.3s ease-in-out;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05); /* Subtle depth */
+        }
+        .main-content.shifted { margin-left: 0; }
+
+        .hamburger {
+            display: none;
+            position: fixed;
+            top: 20px; left: 20px;
+            background: #0a66c2;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            z-index: 1001;
+            min-height: 44px;
+            min-width: 44px;
+        }
+        .hamburger:hover { background: #084a8a; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0; }
+            .hamburger { display: block; }
+        }
+
+        .page { display: none; }
+        .page.active { display: block; }
+
+
+        
+        .page h1 { color: #0a66c2; margin-bottom: 10px; }
+        body.dark .page h1 { color: #8b5cf6; }
+
+        /* Zego root container */
+       /* Zego root container */
+#root {
+    display: none;             /* ★ NEW: hidden by default */
+    width: 100%;
+    height: calc(100vh - 220px);
+}
+
+
+        /* INTERNVIEW DASHBOARD PAGE STYLES - SCOPED */
+        :root {
+            --bg-body: #f3f4f6;
+            --bg-card: #ffffff;
+            --bg-hero: linear-gradient(135deg, #e0f2fe, #fef9c3);
+            --primary: #2563eb;
+            --primary-soft: rgba(37, 99, 235, 0.1);
+            --accent: #22c55e;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --border-subtle: #e5e7eb;
+            --shadow-soft: 0 15px 35px rgba(15, 23, 42, 0.08);
+            --radius-card: 16px;
+            --radius-pill: 999px;
+            --nav-height: 64px;
+        }
+
+        .iv-dashboard { color: var(--text-main); }
+        .iv-dashboard a { text-decoration: none; color: inherit; }
+
+        /* Top Nav inside Dashboard */
+        .iv-dashboard header.iv-header {
+            position: sticky; top: 0;
+            z-index: 40;
+            backdrop-filter: blur(14px);
+            background: rgba(243, 244, 246, 0.92);
+            border-bottom: 1px solid rgba(209, 213, 219, 0.8);
+            margin-left: -4px; margin-right: -4px;
+        }
+        .iv-dashboard .nav {
+            max-width: 1200px;
+            margin: 0 auto;
+            height: var(--nav-height);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 16px;
+        }
+        .iv-dashboard .nav-left { display: flex; align-items: center; gap: 10px; }
+        .iv-dashboard .logo-mark {
+            width: 32px; height: 32px;
+            border-radius: 12px;
+            background: radial-gradient(circle at 20% 10%, #60a5fa, #2563eb);
+            display: flex; align-items: center; justify-content: center;
+            color: #f9fafb;
+            font-size: 16px; font-weight: 700;
+            box-shadow: 0 8px 18px rgba(37, 99, 235, 0.45);
+        }
+        .iv-dashboard .logo-text { display: flex; flex-direction: column; line-height: 1.1; }
+        .iv-dashboard .logo-text span:first-child { font-size: 18px; font-weight: 600; }
+        .iv-dashboard .logo-text span:last-child { font-size: 11px; color: var(--text-muted); }
+
+        .iv-dashboard .nav-links {
+            display: flex; align-items: center; gap: 18px;
+            font-size: 14px;
+        }
+        .iv-dashboard .nav-link {
+            position: relative;
+            padding: 4px 0;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.15s ease;
+        }
+        .iv-dashboard .nav-link.active {
+            color: var(--primary);
+            font-weight: 500;
+        }
+        .iv-dashboard .nav-link::after {
+            content: '';
+            position: absolute; left: 0; bottom: -4px;
+            width: 0; height: 2px;
+            border-radius: 999px; background: var(--primary);
+            transition: width 0.18s ease;
+        }
+        .iv-dashboard .nav-link.active::after { width: 100%; }
+        .iv-dashboard .nav-link:hover::after { width: 100%; }
+        .iv-dashboard .nav-link:hover { color: #1d4ed8; }
+
+        .iv-dashboard .nav-mobile-toggle {
+            display: none;
+            border: none; background: transparent;
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            align-items: center; justify-content: center;
+            cursor: pointer;
+        }
+        .iv-dashboard .nav-mobile-toggle span {
+            display: block; width: 18px; height: 2px;
+            background: #111827; border-radius: 999px;
+            position: relative;
+        }
+        .iv-dashboard .nav-mobile-toggle span::before,
+        .iv-dashboard .nav-mobile-toggle span::after {
+            content: '';
+            position: absolute;
+            width: 18px; height: 2px;
+            border-radius: 999px; background: #111827;
+            left: 0;
+        }
+        .iv-dashboard .nav-mobile-toggle span::before { top: -5px; }
+        .iv-dashboard .nav-mobile-toggle span::after { top: 5px; }
+
+        .iv-dashboard .iv-main {
+            max-width: 1200px;
+            margin: 20px auto 32px;
+            padding: 0 16px 16px;
+        }
+        .iv-dashboard .page-header {
+            margin-bottom: 14px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .iv-dashboard .page-header span { color: var(--primary); font-weight: 500; }
+
+        .iv-dashboard .card {
+            background: var(--bg-card);
+            border-radius: var(--radius-card);
+            box-shadow: var(--shadow-soft);
+            border: 1px solid rgba(229, 231, 235, 0.8);
+        }
+
+        /* Hero */
+        .iv-dashboard .hero-card {
+            padding: 20px 22px;
+            background-image: var(--bg-hero);
+            display: flex; flex-wrap: wrap;
+            align-items: center; justify-content: space-between;
+            gap: 18px;
+            margin-bottom: 22px;
+            position: relative; overflow: hidden;
+        }
+        .iv-dashboard .hero-content {
+            max-width: 640px;
+            position: relative; z-index: 1;
+        }
+        .iv-dashboard .hero-heading {
+            font-size: 26px; font-weight: 600;
+            display: flex; align-items: center; gap: 6px;
+            margin-bottom: 4px;
+        }
+        .iv-dashboard .hero-goal {
+            font-size: 14px; color: #4b5563;
+            margin-bottom: 6px;
+        }
+        .iv-dashboard .hero-tagline {
+            font-size: 13px; color: #6b7280;
+        }
+        .iv-dashboard .hero-meta {
+            display: flex; align-items: center; gap: 16px;
+            margin-top: 10px;
+            font-size: 12px; color: #4b5563;
+            flex-wrap: wrap;
+        }
+        .iv-dashboard .meta-pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(37, 99, 235, 0.08);
+            color: #1e3a8a;
+            font-weight: 500; font-size: 11px;
+        }
+        .iv-dashboard .meta-pill-dot {
+            width: 8px; height: 8px;
+            border-radius: 999px;
+            background: #22c55e;
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.35);
+        }
+        .iv-dashboard .hero-side {
+            display: flex; flex-direction: column;
+            align-items: flex-end; gap: 10px;
+            min-width: 180px;
+            position: relative; z-index: 1;
+        }
+        .iv-dashboard .btn-pill {
+            display: inline-flex; align-items: center; justify-content: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: var(--radius-pill);
+            border: 1px solid rgba(37, 99, 235, 0.5);
+            background: rgba(255, 255, 255, 0.85);
+            color: #1d4ed8;
+            font-size: 13px; font-weight: 500;
+            cursor: pointer;
+            transition: box-shadow 0.18s ease, transform 0.12s ease, background 0.18s ease;
+        }
+        .iv-dashboard .btn-pill:hover {
+            transform: translateY(-1px);
+            background: #eff6ff;
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+        }
+        .iv-dashboard .btn-pill span.icon {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 18px; height: 18px;
+            border-radius: 999px;
+            border: 1px solid rgba(37, 99, 235, 0.5);
+            font-size: 12px;
+        }
+        .iv-dashboard .hero-progress-chip {
+            font-size: 11px;
+            padding: 4px 9px;
+            border-radius: 999px;
+            background: rgba(34, 197, 94, 0.14);
+            color: #166534;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .iv-dashboard .hero-decoration {
+            position: absolute;
+            right: -40px; top: -40px;
+            width: 200px; height: 200px;
+            border-radius: 999px;
+            background: radial-gradient(circle at 30% 30%, rgba(59,130,246,0.5), transparent 60%);
+            opacity: 0.4;
+        }
+
+        /* Stats Grid */
+        .iv-dashboard .stats-grid {
+            margin-bottom: 22px;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 16px;
+        }
+        .iv-dashboard .stat-card {
+            padding: 14px 16px;
+            display: flex; flex-direction: column;
+            gap: 6px;
+            position: relative; overflow: hidden;
+        }
+        .iv-dashboard .stat-label {
+            font-size: 12px; color: var(--text-muted);
+            display: flex; align-items: center; gap: 6px;
+        }
+        .iv-dashboard .stat-icon {
+            width: 26px; height: 26px;
+            border-radius: 999px;
+            background: var(--primary-soft);
+            color: var(--primary);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px;
+        }
+        .iv-dashboard .stat-value { font-size: 22px; font-weight: 600; }
+        .iv-dashboard .stat-caption { font-size: 12px; color: var(--text-muted); }
+        .iv-dashboard .stat-card::after {
+            content: '';
+            position: absolute;
+            inset: auto auto -24px -24px;
+            width: 60px; height: 60px;
+            border-radius: 999px;
+            background: radial-gradient(circle, rgba(37, 99, 235, 0.12), transparent 70%);
+        }
+
+        /* Content Grid */
+        .iv-dashboard .content-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 2fr) minmax(0, 1.6fr);
+            gap: 16px;
+            margin-bottom: 22px;
+        }
+        .iv-dashboard .card-header {
+            padding: 14px 16px 10px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .iv-dashboard .card-title { font-size: 15px; font-weight: 600; }
+        .iv-dashboard .card-subtitle { font-size: 12px; color: var(--text-muted); }
+        .iv-dashboard .card-body { padding: 10px 16px 14px; }
+
+        .iv-dashboard .activity-list {
+            list-style: none;
+            display: flex; flex-direction: column;
+            gap: 10px;
+            max-height: 260px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        .iv-dashboard .activity-item {
+            display: flex; gap: 10px;
+            padding: 8px 10px;
+            border-radius: 12px;
+            transition: background 0.12s ease, transform 0.08s ease;
+            cursor: default;
+        }
+        .iv-dashboard .activity-item:hover {
+            background: #f3f4ff;
+            transform: translateY(-1px);
+        }
+        .iv-dashboard .activity-icon {
+            flex-shrink: 0;
+            width: 30px; height: 30px;
+            border-radius: 12px;
+            background: #eff6ff;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--primary);
+            font-size: 16px;
+        }
+        .iv-dashboard .activity-main {
+            display: flex; flex-direction: column; gap: 2px;
+        }
+        .iv-dashboard .activity-title { font-size: 14px; font-weight: 500; }
+        .iv-dashboard .activity-meta { font-size: 12px; color: var(--text-muted); }
+
+        .iv-dashboard .upcoming-block {
+            display: flex; flex-direction: column; gap: 10px;
+            font-size: 13px;
+        }
+        .iv-dashboard .upcoming-label {
+            font-size: 12px; font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .iv-dashboard .upcoming-item {
+            padding: 8px 10px;
+            border-radius: 12px;
+            background: #eff6ff;
+            border: 1px solid rgba(37, 99, 235, 0.18);
+            display: flex; gap: 10px; align-items: flex-start;
+        }
+        .iv-dashboard .upcoming-dot {
+            width: 8px; height: 8px;
+            border-radius: 999px;
+            margin-top: 4px;
+            background: var(--primary);
+        }
+        .iv-dashboard .upcoming-text-title {
+            font-size: 13px; font-weight: 500;
+            margin-bottom: 2px;
+        }
+        .iv-dashboard .upcoming-text-meta { font-size: 12px; color: var(--text-muted); }
+
+        .iv-dashboard .suggested-item {
+            padding: 8px 10px;
+            border-radius: 12px;
+            background: #ecfdf5;
+            border: 1px solid rgba(22, 163, 74, 0.2);
+            display: flex; gap: 10px; align-items: flex-start;
+        }
+        .iv-dashboard .suggested-dot {
+            width: 8px; height: 8px;
+            margin-top: 4px;
+            border-radius: 999px;
+            background: var(--accent);
+        }
+        .iv-dashboard .suggested-text-title {
+            font-size: 13px; font-weight: 500;
+            margin-bottom: 2px;
+        }
+        .iv-dashboard .suggested-text-meta { font-size: 12px; color: var(--text-muted); }
+
+        .iv-dashboard .actions-row {
+            display: flex; flex-wrap: wrap; gap: 10px;
+            margin-top: 12px;
+        }
+        .iv-dashboard .btn-primary {
+            flex: 1; min-width: 140px;
+            border-radius: var(--radius-pill);
+            border: none;
+            padding: 9px 14px;
+            font-size: 13px; font-weight: 500;
+            cursor: pointer;
+            background: var(--primary);
+            color: #ffffff;
+            box-shadow: 0 10px 22px rgba(37, 99, 235, 0.35);
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.15s ease;
+        }
+        .iv-dashboard .btn-primary:hover {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 12px 26px rgba(37, 99, 235, 0.4);
+        }
+        .iv-dashboard .btn-primary:active {
+            transform: translateY(1px);
+            box-shadow: 0 7px 16px rgba(37, 99, 235, 0.35);
+        }
+        .iv-dashboard .btn-secondary {
+            flex: 1; min-width: 160px;
+            border-radius: var(--radius-pill);
+            border: 1px solid rgba(37, 99, 235, 0.4);
+            padding: 9px 14px;
+            font-size: 13px; font-weight: 500;
+            cursor: pointer;
+            background: #ffffff;
+            color: var(--primary);
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+        }
+        .iv-dashboard .btn-secondary:hover {
+            background: #eff6ff;
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(37, 99, 235, 0.18);
+        }
+        .iv-dashboard .btn-secondary:active {
+            transform: translateY(1px);
+            box-shadow: 0 6px 14px rgba(37, 99, 235, 0.18);
+        }
+        .iv-dashboard .action-caption {
+            font-size: 11px; color: var(--text-muted);
+            margin-top: 3px;
+        }
+
+        /* Progress chart */
+        .iv-dashboard .progress-card { padding-bottom: 12px; }
+        .iv-dashboard .chart-container { padding: 12px 18px 14px; }
+        .iv-dashboard .chart-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 8px;
+            font-size: 12px; color: var(--text-muted);
+        }
+        .iv-dashboard .chart-legend {
+            display: flex; gap: 10px; align-items: center;
+            font-size: 11px;
+        }
+        .iv-dashboard .legend-item {
+            display: inline-flex; align-items: center; gap: 4px;
+        }
+        .iv-dashboard .legend-color {
+            width: 10px; height: 10px;
+            border-radius: 4px;
+            background: var(--primary);
+        }
+        .iv-dashboard .chart {
+            position: relative;
+            border-radius: 14px;
+            border: 1px solid #e5e7eb;
+            background: #ffffff;
+            padding: 16px 12px 14px;
+            overflow: hidden;
+        }
+        .iv-dashboard .chart-grid {
+            position: absolute;
+            inset: 12px 12px 26px 30px;
+            pointer-events: none;
+        }
+        .iv-dashboard .chart-grid-horizontal {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            justify-content: space-between;
+        }
+        .iv-dashboard .chart-grid-line {
+            width: 100%; height: 1px;
+            border-top: 1px dashed #e5e7eb;
+        }
+        .iv-dashboard .chart-inner {
+            position: relative;
+            display: flex; align-items: flex-end;
+            justify-content: space-between; gap: 8px;
+            padding: 0 8px 22px;
+            height: 170px;
+        }
+        .iv-dashboard .chart-bar-wrapper {
+            flex: 1;
+            display: flex; flex-direction: column;
+            align-items: center; gap: 6px;
+        }
+        .iv-dashboard .chart-bar {
+            width: 100%; max-width: 24px;
+            border-radius: 999px;
+            background: linear-gradient(180deg, #60a5fa, #2563eb);
+            box-shadow: 0 8px 18px rgba(37, 99, 235, 0.4);
+            height: 0;
+            transition: height 0.5s ease-out;
+        }
+        .iv-dashboard .chart-day-label { font-size: 11px; color: var(--text-muted); }
+        .iv-dashboard .chart-y-axis-label {
+            position: absolute;
+            left: 18px; top: 10px;
+            font-size: 10px; color: var(--text-muted);
+            transform: rotate(-90deg);
+            transform-origin: left top;
+        }
+
+        .iv-dashboard .activity-list::-webkit-scrollbar { width: 6px; }
+        .iv-dashboard .activity-list::-webkit-scrollbar-track { background: transparent; }
+        .iv-dashboard .activity-list::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 999px;
+        }
+
+        /* Responsive for dashboard */
+        @media (max-width: 960px) {
+            .iv-dashboard .content-grid { grid-template-columns: minmax(0, 1fr); }
+            .iv-dashboard .hero-card { align-items: flex-start; }
+            .iv-dashboard .hero-side { align-items: flex-start; }
+        }
+        @media (max-width: 800px) {
+            .iv-dashboard .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 600px) {
+            .iv-dashboard .stats-grid { grid-template-columns: minmax(0, 1fr); }
+            .iv-dashboard .hero-heading { font-size: 22px; }
+        }
+        @media (max-width: 720px) {
+            .iv-dashboard .nav-links { display: none; }
+            .iv-dashboard .nav-mobile-toggle { display: inline-flex; }
+            .iv-dashboard .nav-links.mobile-open {
+                position: absolute;
+                top: var(--nav-height); right: 0; left: 0;
+                background: rgba(243, 244, 246, 0.98);
+                padding: 10px 16px 14px;
+                border-bottom: 1px solid #e5e7eb;
+                display: flex; justify-content: flex-end; gap: 16px;
+            }
+        }
+
+        /* Mock Interviews Page Specific */
+        .mock-interviews-info {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            text-align: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .mock-interviews-info h2 { font-size: 2.5rem; margin-bottom: 20px; }
+        .mock-interviews-info p { font-size: 1.2rem; margin-bottom: 30px; opacity: 0.9; }
+        #mock-status {
+            background: rgba(255,255,255,0.2);
+            padding: 15px 25px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+
+        /* Other pages basic styling */
+        .page-inner {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px 10px;
+        }
+        .page-inner p { margin-bottom: 8px; font-size: 0.95rem; }
+        .page-inner h2 { margin-bottom: 12px; }
+/* PROFILE PAGE STYLES */
+.profile-wrapper {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px 10px;
+}
+
+.profile-card {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 24px;
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 24px;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+}
+
+.profile-left {
+    border-right: 1px solid #e5e7eb;
+    padding-right: 20px;
+}
+
+.profile-avatar {
+    width: 96px;
+    height: 96px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #0a66c2, #7c3aed);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 42px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 14px;
+}
+
+.profile-name {
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.profile-email {
+    font-size: 0.9rem;
+    color: #6b7280;
+    margin-bottom: 12px;
+}
+
+.profile-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #eff6ff;
+    font-size: 0.8rem;
+    color: #1d4ed8;
+    margin-bottom: 16px;
+}
+
+.profile-summary-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 0.9rem;
+    color: #4b5563;
+}
+.profile-summary-list li {
+    margin-bottom: 6px;
+}
+
+.profile-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.profile-form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.profile-form label {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.profile-form input[type="text"],
+.profile-form input[type="url"],
+.profile-form textarea {
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.profile-form textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.profile-form input:focus,
+.profile-form textarea:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.45);
+}
+
+.profile-save-btn {
+    align-self: flex-start;
+    padding: 9px 18px;
+    border-radius: 999px;
+    border: none;
+    background: linear-gradient(135deg, #0a66c2, #7c3aed);
+    color: #ffffff;
+    font-weight: 500;
+    font-size: 0.95rem;
+    cursor: pointer;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.profile-save-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.24);
+}
+.profile-save-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 7px 18px rgba(15, 23, 42, 0.18);
+}
+
+@media (max-width: 768px) {
+    .profile-card {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .profile-left {
+        border-right: none;
+        border-bottom: 1px solid #e5e7eb;
+        padding-right: 0;
+        padding-bottom: 16px;
+        margin-bottom: 12px;
+    }
+}
+.profile-alert {
+    margin-top: 10px;
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.profile-alert-success {
+    background: #ecfdf3;
+    border: 1px solid #16a34a;
+    color: #166534;
+}
+
+.profile-alert.hide {
+    opacity: 0;
+    transform: translateY(-4px);
+    pointer-events: none;
+}
+
+
+/* DSA Practice specific UI */
+
+.dsa-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.dsa-tab-btn {
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.dsa-tab-btn.active {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+}
+
+.dsa-tab {
+  display: none;
+}
+
+.dsa-tab.active {
+  display: block;
+}
+
+/* Filters and problem list */
+
+.dsa-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.dsa-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dsa-filter-group select {
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-size: 12px;
+}
+
+.dsa-problem-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.problem-card {
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  padding: 10px 12px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.problem-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.problem-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.problem-meta {
+  font-size: 11px;
+  color: #6b7280;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.problem-tag {
+  font-weight: 500;
+}
+
+.problem-company {
+  font-style: italic;
+}
+
+.problem-difficulty {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.problem-difficulty.easy {
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #bbf7d0;
+}
+
+.problem-difficulty.medium {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.problem-difficulty.hard {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.problem-btn {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+/* Problem detail layout */
+
+.problem-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.6fr);
+  gap: 16px;
+}
+
+.problem-desc {
+  font-size: 13px;
+}
+
+.problem-section {
+  margin-top: 10px;
+}
+
+.problem-section h5 {
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.problem-section pre {
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 8px;
+  font-size: 12px;
+  overflow-x: auto;
+}
+
+.hint-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.hint-output {
+  font-size: 12px;
+  background: #eff6ff;
+  border-radius: 10px;
+  padding: 8px;
+}
+
+/* Editor styles */
+
+.problem-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.editor-lang label {
+  font-size: 12px;
+  margin-right: 4px;
+}
+
+.editor-lang select {
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-size: 12px;
+}
+
+.code-editor {
+  width: 100%;
+  min-height: 180px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  padding: 8px;
+  font-family: monospace;
+  font-size: 12px;
+  resize: vertical;
+  white-space: pre;
+}
+
+.editor-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.editor-input textarea {
+  width: 100%;
+  min-height: 70px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  padding: 6px;
+  font-family: monospace;
+  font-size: 12px;
+  resize: vertical;
+}
+
+.editor-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.editor-output {
+  margin-top: 8px;
+}
+
+.editor-output pre {
+  background: #111827;
+  color: #e5e7eb;
+  border-radius: 10px;
+  padding: 8px;
+  font-size: 12px;
+  min-height: 60px;
+}
+
+.problem-explanation {
+  margin-top: 8px;
+  font-size: 12px;
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 8px;
+}
+
+@media (max-width: 900px) {
+  .problem-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* DSA Theory Q&A styling */
+
+.dsa-theory-card {
+    margin-top: 18px;
+}
+
+.dsa-theory-progress-wrap {
+    font-size: 12px;
+    color: #4b5563;
+}
+
+.dsa-theory-search {
+    margin-bottom: 10px;
+}
+
+.dsa-theory-search input {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 999px;
+    border: 1px solid #d1d5db;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dsa-theory-search input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35);
+}
+
+.qa-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.qa-item {
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    overflow: hidden;
+    transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
+}
+
+.qa-item.open {
+    border-color: #2563eb;
+    box-shadow: 0 10px 20px rgba(37, 99, 235, 0.12);
+    transform: translateY(-1px);
+}
+
+.qa-question {
+    width: 100%;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.qa-q-label {
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.qa-q-text {
+    font-size: 13px;
+    font-weight: 500;
+    flex: 1;
+}
+
+.qa-toggle-icon {
+    font-size: 12px;
+    transform: rotate(0deg);
+    transition: transform 0.15s ease;
+    color: #6b7280;
+}
+
+.qa-item.open .qa-toggle-icon {
+    transform: rotate(180deg);
+}
+
+.qa-meta {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 12px 0;
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.qa-done {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 0 4px;
+}
+
+.qa-done input {
+    width: 12px;
+    height: 12px;
+}
+
+.qa-answer {
+    display: none;
+    padding: 6px 12px 10px;
+    font-size: 12px;
+    color: #4b5563;
+    border-top: 1px solid #e5e7eb;
+    background: #f9fafb;
+}
+
+.qa-item.open .qa-answer {
+    display: block;
+}
+
+.qa-answer ul {
+    margin-left: 16px;
+    margin-top: 4px;
+}
+
+.qa-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.qa-table th,
+.qa-table td {
+    border: 1px solid #e5e7eb;
+    padding: 6px 8px;
+}
+
+.qa-table th {
+    background: #eff6ff;
+    font-weight: 600;
+}
+
+/* When filtered out */
+.qa-item.hidden {
+    display: none;
+}
+
+
+/* OS & DBMS Practice Page */
+
+.osdb-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px;
+  font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.osdb-section {
+  margin-bottom: 32px;
+}
+
+.osdb-header h1 {
+  font-size: 1.6rem;
+  margin-bottom: 4px;
+  color: #111827;
+}
+
+.osdb-header p {
+  font-size: 0.95rem;
+  color: #4b5563;
+}
+
+/* Q&A cards */
+
+.qa-container {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.qa-item {
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  overflow: hidden;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
+}
+
+.qa-item.open {
+  border-color: #2563eb;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.12);
+  transform: translateY(-1px);
+}
+
+.qa-question {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.qa-q-title {
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-align: left;
+  margin-right: 12px;
+}
+
+.qa-toggle {
+  font-size: 0.9rem;
+  color: #6b7280;
+  transition: transform 0.15s ease;
+}
+
+.qa-item.open .qa-toggle {
+  transform: rotate(180deg);
+}
+
+.qa-answer {
+  display: none;
+  padding: 8px 14px 10px;
+  font-size: 0.88rem;
+  color: #4b5563;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.qa-item.open .qa-answer {
+  display: block;
+}
+
+/* SQL practice */
+
+.sql-section {
+  margin-top: 24px;
+}
+
+.sql-section h2 {
+  font-size: 1.3rem;
+  margin-bottom: 4px;
+}
+
+.sql-section p {
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.sql-card {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.sql-card h3 {
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.sql-card p {
+  font-size: 0.88rem;
+  margin-bottom: 4px;
+}
+
+.sql-example,
+.sql-code {
+  background: #0f172a;
+  color: #e5e7eb;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.8rem;
+  padding: 8px;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+/* Responsive */
+
+@media (max-width: 768px) {
+  .osdb-page {
+    padding: 10px;
+  }
+  .osdb-header h1 {
+    font-size: 1.3rem;
+  }
+}
+
+
+/* ================= OS & DBMS PAGE STYLES ================= */
+
+/* Main wrapper inside #os.page .page-inner */
+.osdb-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin-top: 8px;
+}
+
+/* Each main section: OS + DBMS */
+.osdb-section {
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 22px 20px 24px;
+    box-shadow: 0 15px 30px rgba(15, 23, 42, 0.08);
+    border: 1px solid #e5e7eb;
+}
+
+/* Section headers */
+.osdb-header {
+    margin-bottom: 10px;
+}
+.osdb-header h1 {
+    font-size: 1.3rem;
+    margin-bottom: 4px;
+    color: #0f172a;
+}
+.osdb-header p {
+    font-size: 0.9rem;
+    color: #6b7280;
+}
+
+/* Q&A container stack */
+.qa-container {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Q&A card */
+.qa-item {
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    overflow: hidden;
+    transition:
+        box-shadow 0.18s ease,
+        transform 0.08s ease,
+        background 0.15s ease,
+        border-color 0.15s ease;
+}
+.qa-item:hover {
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+    transform: translateY(-1px);
+    border-color: #d1d5db;
+}
+
+/* Question button */
+.qa-question {
+    width: 100%;
+    border: none;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    text-align: left;
+}
+.qa-q-title {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #111827;
+}
+.qa-toggle {
+    font-size: 0.9rem;
+    color: #6b7280;
+    transition: transform 0.18s ease, color 0.18s ease;
+}
+.qa-item:hover .qa-toggle {
+    color: #111827;
+}
+
+/* Answer body (accordion content) */
+.qa-answer {
+    display: none;               /* collapsed by default */
+    padding: 0 12px 10px;
+    font-size: 0.9rem;
+    color: #4b5563;
+    border-top: 1px solid #e5e7eb;
+    background: #ffffff;
+}
+.qa-answer p {
+    margin-top: 8px;
+    line-height: 1.45;
+}
+
+/* Expanded state */
+.qa-item.active .qa-answer {
+    display: block;
+}
+.qa-item.active .qa-toggle {
+    transform: rotate(180deg);
+}
+
+/* SQL practice section inside DBMS card */
+.sql-section {
+    margin-top: 22px;
+    border-top: 1px dashed #e5e7eb;
+    padding-top: 16px;
+}
+.sql-section h2 {
+    font-size: 1.05rem;
+    margin-bottom: 4px;
+    color: #111827;
+}
+.sql-section > p {
+    font-size: 0.9rem;
+    color: #6b7280;
+    margin-bottom: 6px;
+}
+
+/* Individual SQL question blocks */
+.sql-card {
+    margin-top: 12px;
+    padding: 10px 12px 12px;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+}
+.sql-card strong {
+    display: block;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+    color: #111827;
+}
+.sql-card p {
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+}
+
+/* Code and table examples */
+.sql-example,
+.sql-code {
+    display: block;
+    margin-top: 4px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: #020617;
+    color: #e5e7eb;
+    font-family: "Fira Code", Consolas, monospace;
+    font-size: 0.8rem;
+    overflow-x: auto;
+    line-height: 1.4;
+}
+
+/* Mobile tweaks */
+@media (max-width: 640px) {
+    .osdb-section {
+        padding: 18px 14px 20px;
+        border-radius: 16px;
+    }
+    .qa-question {
+        padding: 9px 10px;
+    }
+    .sql-card {
+        padding: 9px 10px 11px;
+    }
+}
+/* ========== HR PAGE LAYOUT ========== */
+
+.hr-wrapper {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 20px;
+    margin-top: 10px;
+}
+
+/* Left mini sidebar */
+.hr-sidebar {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 16px;
+    padding: 16px 14px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    border: 1px solid #e5e7eb;
+    position: sticky;
+    top: 90px;         /* adjust if header height changes */
+    align-self: flex-start;
+}
+
+.hr-sidebar-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #4f46e5;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.hr-sidebar a {
+    display: block;
+    padding: 8px 10px;
+    border-radius: 999px;
+    text-decoration: none;
+    font-size: 0.9rem;
+    color: #374151;
+    margin-bottom: 6px;
+    border-left: 4px solid transparent;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.08s ease;
+}
+
+.hr-sidebar a:hover {
+    background: #f3f4ff;
+    border-left-color: #4f46e5;
+    transform: translateX(3px);
+}
+
+/* Right side main content */
+.hr-main {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+/* Top header card */
+.hr-header-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 18px;
+    padding: 20px 18px;
+    color: #ffffff;
+    box-shadow: 0 16px 32px rgba(55, 65, 81, 0.3);
+}
+
+.hr-header-card h1 {
+    margin: 0 0 8px;
+    font-size: 1.5rem;
+}
+
+.hr-header-card p {
+    margin: 0;
+    font-size: 0.95rem;
+    opacity: 0.9;
+}
+
+/* Questions container */
+.hr-qa-container {
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 18px 18px 20px;
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+    border: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+/* Individual question card */
+.hr-question-card {
+    border-radius: 12px;
+    border: 2px solid #e5e7eb;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    padding: 14px 14px 12px;
+    transition: transform 0.12s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.hr-question-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.18);
+    border-color: #c7d2fe;
+}
+
+.hr-question-card h3 {
+    margin: 0 0 8px;
+    font-size: 1rem;
+    color: #4f46e5;
+}
+
+/* Reveal button */
+.hr-toggle-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #ffffff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 999px;
+    margin-top: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    box-shadow: 0 10px 20px rgba(55, 65, 81, 0.35);
+    transition: transform 0.1s ease, box-shadow 0.12s ease, opacity 0.1s ease;
+}
+
+.hr-toggle-btn:hover {
+    opacity: 0.95;
+    transform: translateY(-1px);
+    box-shadow: 0 12px 24px rgba(55, 65, 81, 0.4);
+}
+
+.hr-toggle-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 7px 14px rgba(55, 65, 81, 0.32);
+}
+
+/* Hidden content */
+.hr-toggle-content {
+    display: none;
+    margin-top: 10px;
+    animation: hrFadeIn 0.25s ease;
+}
+
+/* Answer / Explanation / Tips blocks */
+.hr-answer,
+.hr-explanation,
+.hr-tips {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+}
+
+.hr-answer {
+    background-color: #fffacd;
+    border-left: 5px solid #ffd700;
+}
+
+.hr-explanation {
+    background-color: #e0f7fa;
+    border-left: 5px solid #00bcd4;
+}
+
+.hr-tips {
+    background-color: #fce4ec;
+    border-left: 5px solid #e91e63;
+}
+
+@keyframes hrFadeIn {
+    from { opacity: 0; transform: translateY(-3px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Mobile adjustments */
+@media (max-width: 900px) {
+    .hr-wrapper {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .hr-sidebar {
+        position: static;
+        order: -1;
+    }
+}
+
+
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <aside class="sidebar" id="sidebar">
+  <div class="header">
+    <i data-lucide="briefcase"></i>
+    <h2>InternHub.ai</h2>
+  </div>
+  <nav>
+    <ul>
+      <li><a href="#" data-page="dashboard" class="active"><i data-lucide="home"></i> Dashboard</a></li>
+      <li><a href="#" data-page="practice"><i data-lucide="code"></i> DSA Practice</a></li>
+
+      <li><a href="#" data-page="os"><i data-lucide="cpu"></i> OS & DBMS</a></li>
+      <li><a href="qn.html" data-page="hr"><i data-lucide="message-circle"></i> HR Questions</a></li>
+      <li>
+  <a href="#" data-page="mock-interviews" class="mock-link">
+    <i data-lucide="users"></i> Mock Interviews
+  </a>
+</li>
+
+
+      <li><a href="#" data-page="resources"><i data-lucide="book"></i> Resources</a></li>
+      <li><a href="#" data-page="profile"><i data-lucide="user"></i> Profile</a></li>
+    </ul>
+  </nav>
+
+            <button class="logout-btn" id="logoutBtn">
+                <i data-lucide="log-out"></i>
+                Logout
+            </button>
+            <button class="dark-mode-toggle" id="darkModeToggle">
+                <i data-lucide="moon"></i>
+                Toggle Dark Mode
+            </button>
+        </aside>
+
+        <button class="hamburger" id="hamburger">☰</button>
+
+        <main class="main-content" id="mainContent">
+            <!-- DASHBOARD PAGE - InternView design -->
+            <div id="dashboard" class="page active">
+                <div class="iv-dashboard">
+                    <header class="iv-header">
+                        <nav class="nav" aria-label="Primary">
+                            <div class="nav-left">
+                                <div class="logo-mark">IV</div>
+                                <div class="logo-text">
+                                    <span>InternHub.ai</span>
+                                    <span>Interview Prep Dashboard</span>
+                                </div>
+                            </div>
+                            <button class="nav-mobile-toggle" aria-label="Toggle navigation" id="topNavToggle">
+                                <span></span>
+                            </button>
+                            <div class="nav-links" id="topNavLinks">
+                                <a href="#" class="nav-link active" data-page="dashboard">Dashboard</a>
+                                <a href="#" class="nav-link" data-page="practice">Practice</a>
+                                <a href="#" class="nav-link" data-page="mock-interviews">Mock Interviews</a>
+                                <a href="#" class="nav-link" data-page="profile">Profile</a>
+                            </div>
+                        </nav>
+                    </header>
+
+                    <section class="iv-main">
+                        <div class="page-header">
+                            <span>Overview</span> <span>Home</span>
+                        </div>
+
+                        <!-- Section 1: Welcome + Goal Hero -->
+                        <section class="hero-card card" aria-label="Welcome and goals">
+                            <div class="hero-decoration"></div>
+                            <div class="hero-content">
+                                <div class="hero-heading">
+                                    Hi, <?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?>!
+                                </div>
+                                <p class="hero-goal">Your goal: <strong>Crack Software Developer role by July 2026.</strong></p>
+                                <p class="hero-tagline">Keep up the consistency. Every practice session moves you closer to your offer letter.</p>
+                                <div class="hero-meta">
+                                    <div class="meta-pill">
+                                        <span class="meta-pill-dot"></span>
+                                        Active this week: 3 sessions
+                                    </div>
+                                    <span style="font-size:12px; color:#4b5563;">
+                                        Focus today: <strong>DSA + Behavioral</strong>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="hero-side">
+                                <a href="#" class="btn-pill" id="updateGoalBtn">
+                                    <span class="icon">✎</span>
+                                    <span>Update Goal</span>
+                                </a>
+                                <div class="hero-progress-chip">
+                                    You have a 3-day streak. Nice momentum.
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Section 2: Stats Cards -->
+                        <section class="stats-grid" aria-label="Key statistics">
+                            <article class="stat-card card">
+                                <div class="stat-label">
+                                    <div class="stat-icon">🎯</div>
+                                    <span>Total mock interviews completed</span>
+                                </div>
+                                <div class="stat-value">12</div>
+                                <div class="stat-caption">Last one <strong>Java Backend</strong> 2 days ago</div>
+                            </article>
+                            <article class="stat-card card">
+                                <div class="stat-label">
+                                    <div class="stat-icon">❓</div>
+                                    <span>Questions practiced this week</span>
+                                </div>
+                                <div class="stat-value">85</div>
+                                <div class="stat-caption">Goal: <strong>100 questions/week</strong></div>
+                            </article>
+                            <article class="stat-card card">
+                                <div class="stat-label">
+                                    <div class="stat-icon">⭐</div>
+                                    <span>Average mock score</span>
+                                </div>
+                                <div class="stat-value">7.8/10</div>
+                                <div class="stat-caption">Last 5 mocks: improving trend</div>
+                            </article>
+                            <article class="stat-card card">
+                                <div class="stat-label">
+                                    <div class="stat-icon">🔥</div>
+                                    <span>Streak</span>
+                                </div>
+                                <div class="stat-value">3 days</div>
+                                <div class="stat-caption">You practiced <strong>3 days in a row</strong>. Keep it going.</div>
+                            </article>
+                        </section>
+
+                        <!-- Section 3 & 4: Recent Activity + Upcoming Suggestions -->
+                        <section class="content-grid" aria-label="Activity and suggestions">
+                            <!-- Recent Activity -->
+                            <article class="card" aria-label="Recent activity">
+                                <div class="card-header">
+                                    <div>
+                                        <div class="card-title">Recent Activity</div>
+                                        <div class="card-subtitle">Your latest practice and mock interview sessions</div>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <ul class="activity-list">
+                                        <li class="activity-item">
+                                            <div class="activity-icon">💬</div>
+                                            <div class="activity-main">
+                                                <div class="activity-title">HR Questions</div>
+                                                <div class="activity-meta">15 questions • Completed today • Focus: Tell me about yourself, Strengths & Weaknesses</div>
+                                            </div>
+                                        </li>
+                                        <li class="activity-item">
+                                            <div class="activity-icon">👨‍💻</div>
+                                            <div class="activity-main">
+                                                <div class="activity-title">Mock Interview: Java Developer</div>
+                                                <div class="activity-meta">Score: 8.2/10 • Yesterday • Feedback: Improve on time complexity explanation</div>
+                                            </div>
+                                        </li>
+                                        <li class="activity-item">
+                                            <div class="activity-icon">📊</div>
+                                            <div class="activity-main">
+                                                <div class="activity-title">Aptitude: Arrays</div>
+                                                <div class="activity-meta">10 questions • 2 days ago • Accuracy: 70%</div>
+                                            </div>
+                                        </li>
+                                        <li class="activity-item">
+                                            <div class="activity-icon">🧱</div>
+                                            <div class="activity-main">
+                                                <div class="activity-title">System Design Basics</div>
+                                                <div class="activity-meta">Watched 1 module • 3 days ago • Topic: Scaling login service</div>
+                                            </div>
+                                        </li>
+                                        <li class="activity-item">
+                                            <div class="activity-icon">🔗</div>
+                                            <div class="activity-main">
+                                                <div class="activity-title">DSA: Linked Lists</div>
+                                                <div class="activity-meta">12 questions • 4 days ago • Most missed: Cycle detection</div>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </article>
+
+                            <!-- Upcoming Suggestions -->
+                            <article class="card" aria-label="Upcoming suggested actions">
+                                <div class="card-header">
+                                    <div>
+                                        <div class="card-title">Upcoming Suggestions</div>
+                                        <div class="card-subtitle">Plan your next focused session</div>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="upcoming-block">
+                                        <div>
+                                            <div class="upcoming-label">Upcoming</div>
+                                            <div class="upcoming-item">
+                                                <div class="upcoming-dot"></div>
+                                                <div>
+                                                    <div class="upcoming-text-title">Next mock interview <strong>System Design</strong></div>
+                                                    <div class="upcoming-text-meta">Scheduled <strong>07:00 PM today</strong> • Format: 45 min live-style interview</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="upcoming-label" style="margin-top:4px;">Suggested</div>
+                                            <div class="suggested-item">
+                                                <div class="suggested-dot"></div>
+                                                <div>
+                                                    <div class="suggested-text-title">Suggested: 10 DSA questions on <strong>Arrays</strong></div>
+                                                    <div class="suggested-text-meta">Based on your recent mocks, arrays edge cases are a weaker area. Recommended difficulty: Easy-Medium.</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="actions-row">
+                                        <button class="btn-primary" type="button" id="startPracticeBtn">Start Practice</button>
+                                        <button class="btn-secondary" type="button" id="startMockBtn">Start Mock Interview</button>
+                                    </div>
+                                    <div class="action-caption">
+                                        Start Practice picks a tailored set of DSA + aptitude questions. Start Mock Interview simulates a timed, real interview with scoring.
+                                    </div>
+                                </div>
+                            </article>
+                        </section>
+
+                        <!-- Section 5: Progress Chart -->
+                        <section class="card progress-card" aria-label="Weekly progress">
+                            <div class="card-header">
+                                <div>
+                                    <div class="card-title">Your Weekly Progress</div>
+                                    <div class="card-subtitle">Questions attempted per day (last 7 days)</div>
+                                </div>
+                                <div class="card-subtitle">This week vs. target</div>
+                            </div>
+                            <div class="chart-container">
+                                <div class="chart-header">
+                                    <span>Last 7 days</span>
+                                    <div class="chart-legend">
+                                        <div class="legend-item">
+                                            <span class="legend-color"></span>
+                                            <span>Questions attempted</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="chart">
+                                    <div class="chart-y-axis-label">Questions attempted</div>
+                                    <div class="chart-grid">
+                                        <div class="chart-grid-horizontal">
+                                            <div class="chart-grid-line"></div>
+                                            <div class="chart-grid-line"></div>
+                                            <div class="chart-grid-line"></div>
+                                            <div class="chart-grid-line"></div>
+                                        </div>
+                                    </div>
+                                    <div class="chart-inner" aria-hidden="true">
+                                        <!-- Bars Mon–Sun -->
+                                        <div class="chart-bar-wrapper">
+                                            <div class="chart-bar" data-day="Mon"></div>
+                                            <div class="chart-day-label">Mon</div>
+                                        </div>
+                                        <div class="chart-bar-wrapper">
+                                            <div class="chart-bar" data-day="Tue"></div>
+                                            <div class="chart-day-label">Tue</div>
+                                        </div>
+                                        <div class="chart-bar-wrapper">
+                                            <div class="chart-bar" data-day="Wed"></div>
+                                            <div class="chart-day-label">Wed</div>
+                                        </div>
+                                        <div class="chart-bar-wrapper">
+                                            <div class="chart-bar" data-day="Thu"></div>
+                                            <div class="chart-day-label">Thu</div>
+                                        </div>
+                                        <div class="chart-bar-wrapper">
+                                            <div class="chart-bar" data-day="Fri"></div>
+                                            <div class="chart-day-label">Fri</div>
+                                        </div>
+                                        <div class="chart-bar-wrapper">
+                                            <div class="chart-bar" data-day="Sat"></div>
+                                            <div class="chart-day-label">Sat</div>
+                                        </div>
+                                        <div class="chart-bar-wrapper">
+                                            <div class="chart-bar" data-day="Sun"></div>
+                                            <div class="chart-day-label">Sun</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                    </section>
+                </div>
+            </div>
+
+            <!-- PRACTICE PAGE -->
+            <!-- PRACTICE PAGE / DSA PRACTICE MODULE -->
+<div id="practice" class="page">
+  <div class="iv-dashboard">
+    <section class="iv-main">
+      <!-- Breadcrumb -->
+      <div class="page-header">
+        <span>Practice</span> <span>DSA Practice</span>
+      </div>
+
+      <!-- DSA Tabs -->
+      <div class="dsa-tabs">
+        <button class="dsa-tab-btn active" data-tab="dsa-overview">Overview</button>
+        <button class="dsa-tab-btn" data-tab="dsa-problems">Problems</button>
+        <button class="dsa-tab-btn" data-tab="dsa-revision">Revision</button>
+        <button class="dsa-tab-btn" data-tab="dsa-problem-detail">Problem View</button>
+      </div>
+
+      <!-- TAB 1: OVERVIEW -->
+      <div id="dsa-overview" class="dsa-tab active">
+        <section class="hero-card card" aria-label="DSA overview">
+          <div class="hero-decoration"></div>
+          <div class="hero-content">
+            <div class="hero-heading">
+              DSA Practice Center
+            </div>
+            <p class="hero-goal">
+              Learn Data Structures & Algorithms and practice interview-style problems.
+            </p>
+            <p class="hero-tagline">
+              Start with topic-wise problems, solve in the built-in code editor, and track your progress automatically.
+            </p>
+            <div class="hero-meta">
+              <div class="meta-pill">
+                <span class="meta-pill-dot"></span>
+                DSA Progress (demo): <strong>12 / 50 problems solved</strong>
+              </div>
+              <span style="font-size:12px; color:#4b5563;">
+                Today’s focus: <strong>Arrays + Strings</strong>
+              </span>
+            </div>
+          </div>
+          <div class="hero-side">
+            <a href="#" class="btn-pill" id="dsaStartEasyBtn">
+              <span class="icon">▶</span>
+              <span>Start Easy Problems</span>
+            </a>
+            <div class="hero-progress-chip">
+              DSA streak: <strong>3 days</strong> (demo)
+            </div>
+          </div>
+        </section>        <!-- DSA THEORY Q&A SECTION -->
+        <section class="card dsa-theory-card" aria-label="DSA basics theory">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">DSA Basics – Theory for Beginners</div>
+                    <div class="card-subtitle">
+                        Read fundamental concepts like "What is data structure?", "What is algorithm?",
+                        stacks, queues, hashing, recursion, graphs, DP and more.
+                    </div>
+                </div>
+                <div class="dsa-theory-progress-wrap">
+                    <span id="dsaTheoryProgress">0 / 15 completed</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Search -->
+                <div class="dsa-theory-search">
+                    <input
+                        type="text"
+                        id="dsaTheorySearch"
+                        placeholder="Search in questions (e.g. stack, graph, time complexity)..."
+                    >
+                </div>
+
+                <!-- Q&A LIST -->
+                <div class="qa-list" id="dsaTheoryList">
+                    <!-- 1 -->
+                    <div class="qa-item" data-id="1">
+                        <button type="button" class="qa-question">
+                            <span class="qa-q-label">1</span>
+                            <span class="qa-q-text">What is a Data Structure?</span>
+                            <span class="qa-toggle-icon">⌄</span>
+                        </button>
+                        <div class="qa-meta">
+                            <label class="qa-done">
+                                <input type="checkbox" class="qa-done-checkbox">
+                                Mark as done
+                            </label>
+                        </div>
+                        <div class="qa-answer">
+                            <p>
+                                A <strong>data structure</strong> is a way of organizing, storing, and managing data so that
+                                it can be used efficiently.
+                            </p>
+                            <p><strong>Examples:</strong> Array, Stack, Queue, Linked List, Tree, Graph.</p>
+                        </div>
+                    </div>
+
+                    <!-- 2 -->
+                    <div class="qa-item" data-id="2">
+                        <button type="button" class="qa-question">
+                            <span class="qa-q-label">2</span>
+                            <span class="qa-q-text">What is an Algorithm?</span>
+                            <span class="qa-toggle-icon">⌄</span>
+                        </button>
+                        <div class="qa-meta">
+                            <label class="qa-done">
+                                <input type="checkbox" class="qa-done-checkbox">
+                                Mark as done
+                            </label>
+                        </div>
+                        <div class="qa-answer">
+                            <p>
+                                An <strong>algorithm</strong> is a step-by-step procedure or set of rules to solve a specific problem.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 3 -->
+                    <div class="qa-item" data-id="3">
+                        <button type="button" class="qa-question">
+                            <span class="qa-q-label">3</span>
+                            <span class="qa-q-text">Why do we study Data Structures and Algorithms?</span>
+                            <span class="qa-toggle-icon">⌄</span>
+                        </button>
+                        <div class="qa-meta">
+                            <label class="qa-done">
+                                <input type="checkbox" class="qa-done-checkbox">
+                                Mark as done
+                            </label>
+                        </div>
+                        <div class="qa-answer">
+                            <p>Because they help us write programs that are:</p>
+                            <ul>
+                                <li>Faster</li>
+                                <li>Memory efficient</li>
+                                <li>Scalable</li>
+                            </ul>
+                            <p>
+                                In short, good DSA knowledge leads to better performance and stronger interview preparation.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 4 -->
+                    <div class="qa-item" data-id="4">
+                        <button type="button" class="qa-question">
+                            <span class="qa-q-label">4</span>
+                            <span class="qa-q-text">Difference between Array and Linked List</span>
+                            <span class="qa-toggle-icon">⌄</span>
+                        </button>
+                        <div class="qa-meta">
+                            <label class="qa-done">
+                                <input type="checkbox" class="qa-done-checkbox">
+                                Mark as done
+                            </label>
+                        </div>
+                        <div class="qa-answer">
+                            <table class="qa-table">
+                                <thead>
+                                    <tr>
+                                        <th>Array</th>
+                                        <th>Linked List</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Fixed size</td>
+                                        <td>Dynamic size</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Random access (O(1))</td>
+                                        <td>Sequential access (O(n))</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Elements stored contiguously</td>
+                                        <td>Nodes stored with pointers (not contiguous)</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Insertion/deletion usually costlier</td>
+                                        <td>Insertion/deletion easier (if position known)</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 5 -->
+                    <div class="qa-item" data-id="5">
+                        <button type="button" class="qa-question">
+                            <span class="qa-q-label">5</span>
+                            <span class="qa-q-text">What is Time Complexity?</span>
+                            <span class="qa-toggle-icon">⌄</span>
+                        </button>
+                        <div class="qa-meta">
+                            <label class="qa-done">
+                                <input type="checkbox" class="qa-done-checkbox">
+                                Mark as done
+                            </label>
+                        </div>
+                        <div class="qa-answer">
+                            <p>
+                                <strong>Time complexity</strong> shows how much time an algorithm takes to run
+                                as a function of input size, usually written in Big-O notation like O(n), O(n²).
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 6 -->
+                    <div class="qa-item" data-id="6">
+                        <button type="button" class="qa-question">
+                            <span class="qa-q-label">6</span>
+                            <span class="qa-q-text">What is Space Complexity?</span>
+                            <span class="qa-toggle-icon">⌄</span>
+                        </button>
+                        <div class="qa-meta">
+                            <label class="qa-done">
+                                <input type="checkbox" class="qa-done-checkbox">
+                                Mark as done
+                            </label>
+                        </div>
+                        <div class="qa-answer">
+                            <p>
+                                <strong>Space complexity</strong> measures how much memory an algorithm uses,
+                                including the input and any extra data structures it creates.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 7 -->
+                    <div class="qa-item" data-id="7">
+                        <button type="button" class="qa-question">
+                            <span class="qa-q-label">7</span>
+                            <span class="qa-q-text">What is Big-O Notation?</span>
+                            <span class="qa-toggle-icon">⌄</span>
+                        </button>
+                        <div class="qa-meta">
+                            <label class="qa-done">
+                                <input type="checkbox" class="qa-done-checkbox">
+                                Mark as done
+                            </label>
+                        </div>
+                        <div class="qa-answer">
+                            <p>
+                                Big-O notation is a mathematical way to express the <strong>worst-case</strong> performance
+                                of an algorithm.
+                            </p>
+                            <p><strong>Examples:</strong></p>
+                            <ul>
+                                <li>O(1) → constant time</li>
+                                <li>O(n) → linear time</li>
+                                <li>O(n²) → quadratic time</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- 8 -->
+                    <div class="qa-item" data-id="8">
+                        <button type="button" class="qa-question">
+                            <span class="qa-q-label">8</span>
+                            <span class="qa-q-text">What is Stack?</span>
+                            <span class="qa-toggle-icon">⌄</span>
+                        </button>
+                        <div class="qa-meta">
+                            <label class="qa-done">
+                                <input type="checkbox" class="qa-done-checkbox">
+                                Mark as done
+                            </label>
+                        </div>
+                        <div class="qa-answer">
+                            <p>
+                                A <strong>stack</strong> is a linear data structure that follows
+                                <strong>LIFO (Last In First Out)</strong>.
+                            </p>
+                            <p><strong>Examples:</strong> Undo operations, function call stack.</p>
+                        </div>
+                    </div>
+
+                    <!-- 9 -->
+                    <div class="qa-item" data-id="9">
+                        <button type="button" class="qa-question">
+                            <span class="qa-q-label">9</span>
+                            <span class="qa-q-text">What is Queue?</span>
+                            <span class="qa-toggle-icon">⌄</span>
+                        </button>
+                        <div class="qa-meta">
+                            <label class="qa-done">
+                                <input type="checkbox" class="qa-done-checkbox">
+                                Mark as done
+                            </label>
+                        </div>
+                        <div class="qa-answer">
+                            <p>
+                                A <strong>queue</strong> is a linear data structure that follows
+                                <strong>FIFO (First In First Out)</strong>.
+                            </p>
+                            <p><strong>Examples:</strong> Printer queue, task scheduling.</p>
+                        </div>
+                    </div>
+
+                    <!-- 10 -->
+                    <div class="qa-item" data-id="10">
+                        <button type="button" class="qa-question">
+                            <span class="qa-q-label">10</span>
+                            <span class="qa-q-text">What is Hashing?</span>
+                            <span class="qa-toggle-icon">⌄</span>
+                        </button>
+                        <div class="qa-meta">
+                            <label class="qa-done">
+                                <input type="checkbox" class="qa-done-checkbox">
+                                Mark as done
+                            </label>
+                        </div>
+                        <div class="qa-answer">
+                            <p>
+                                <strong>Hashing</strong> is a technique used to store and search data very quickly using a
+                                <strong>hash function</strong>.
+                            </p>
+                            <p>HashMap / HashTable gives average O(1) insertion and lookup (in ideal conditions).</p>
+                        </div>
+                    </div>
+
+                    <!-- 11 -->
+                    <div class="qa-item" data-id="11">
+                        <button type="button" class="qa-question">
+                            <span class="qa-q-label">11</span>
+                            <span class="qa-q-text">What is Recursion?</span>
+                            <span class="qa-toggle-icon">⌄</span>
+                        </button>
+                        <div class="qa-meta">
+                            <label class="qa-done">
+                                <input type="checkbox" class="qa-done-checkbox">
+                                Mark as done
+                            </label>
+                        </div>
+                        <div class="qa-answer">
+                            <p>
+                                <strong>Recursion</strong> is a method where a function calls itself until a base condition is reached.
+                            </p>
+                            <p><strong>Examples:</strong> Tree traversal, factorial, Fibonacci.</p>
+                        </div>
+                    </div>
+
+                    <!-- 12 -->
+                    <div class="qa-item" data-id="12">
+                        <button type="button" class="qa-question">
+                            <span class="qa-q-label">12</span>
+                            <span class="qa-q-text">What is a Linked List?</span>
+                            <span class="qa-toggle-icon">⌄</span>
+                        </button>
+                        <div class="qa-meta">
+                            <label class="qa-done">
+                                <input type="checkbox" class="qa-done-checkbox">
+                                Mark as done
+                            </label>
+                        </div>
+                        <div class="qa-answer">
+                            <p>
+                                A <strong>linked list</strong> is a collection of nodes where each node holds:
+                            </p>
+                            <ul>
+                                <li>Data</li>
+                                <li>Address (pointer) to the next node</li>
+                            </ul>
+                            <p>It does not need contiguous memory locations like an array.</p>
+                        </div>
+                    </div>
+
+                    <!-- 13 -->
+                    <div class="qa-item" data-id="13">
+                        <button type="button" class="qa-question">
+                            <span class="qa-q-label">13</span>
+                            <span class="qa-q-text">What is a Binary Tree?</span>
+                            <span class="qa-toggle-icon">⌄</span>
+                        </button>
+                        <div class="qa-meta">
+                            <label class="qa-done">
+                                <input type="checkbox" class="qa-done-checkbox">
+                                Mark as done
+                            </label>
+                        </div>
+                        <div class="qa-answer">
+                            <p>
+                                A <strong>binary tree</strong> is a tree data structure where each node has at most
+                                two children: left and right.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 14 -->
+                    <div class="qa-item" data-id="14">
+                        <button type="button" class="qa-question">
+                            <span class="qa-q-label">14</span>
+                            <span class="qa-q-text">What is a Graph?</span>
+                            <span class="qa-toggle-icon">⌄</span>
+                        </button>
+                        <div class="qa-meta">
+                            <label class="qa-done">
+                                <input type="checkbox" class="qa-done-checkbox">
+                                Mark as done
+                            </label>
+                        </div>
+                        <div class="qa-answer">
+                            <p>
+                                A <strong>graph</strong> is a non-linear data structure made up of:
+                            </p>
+                            <ul>
+                                <li><strong>Nodes</strong> (vertices)</li>
+                                <li><strong>Connections</strong> (edges)</li>
+                            </ul>
+                            <p>Used in networks, maps, social media, etc.</p>
+                        </div>
+                    </div>
+
+                    <!-- 15 -->
+                    <div class="qa-item" data-id="15">
+                        <button type="button" class="qa-question">
+                            <span class="qa-q-label">15</span>
+                            <span class="qa-q-text">What is Dynamic Programming (DP)?</span>
+                            <span class="qa-toggle-icon">⌄</span>
+                        </button>
+                        <div class="qa-meta">
+                            <label class="qa-done">
+                                <input type="checkbox" class="qa-done-checkbox">
+                                Mark as done
+                            </label>
+                        </div>
+                        <div class="qa-answer">
+                            <p>
+                                <strong>Dynamic Programming (DP)</strong> is a method of solving problems by breaking them
+                                into smaller overlapping subproblems and storing solutions to subproblems to avoid
+                                recomputation.
+                            </p>
+                            <p>It usually improves performance from exponential to polynomial time.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+        </section>
+
+        
+
+
+        <section class="stats-grid" aria-label="DSA stats">
+          <article class="stat-card card">
+            <div class="stat-label">
+              <div class="stat-icon">📚</div>
+              <span>Total DSA problems solved</span>
+            </div>
+            <div class="stat-value">12</div>
+            <div class="stat-caption">This week: <strong>5</strong> (demo)</div>
+          </article>
+          <article class="stat-card card">
+            <div class="stat-label">
+              <div class="stat-icon">🎯</div>
+              <span>Accuracy</span>
+            </div>
+            <div class="stat-value">70%</div>
+            <div class="stat-caption">Across solved problems (demo)</div>
+          </article>
+          <article class="stat-card card">
+            <div class="stat-label">
+              <div class="stat-icon">⏱</div>
+              <span>Avg solving time</span>
+            </div>
+            <div class="stat-value">16m</div>
+            <div class="stat-caption">Per problem (demo)</div>
+          </article>
+          <article class="stat-card card">
+            <div class="stat-label">
+              <div class="stat-icon">🔥</div>
+              <span>DSA streak</span>
+            </div>
+            <div class="stat-value">3</div>
+            <div class="stat-caption">Days in a row (demo)</div>
+          </article>
+        </section>
+      </div>
+
+      <!-- TAB 2: PROBLEM LIST -->
+      <div id="dsa-problems" class="dsa-tab">
+        <article class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Practice Problems</div>
+              <div class="card-subtitle">Choose a topic and difficulty, then pick a problem to solve.</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <!-- Filters -->
+            <div class="dsa-filters">
+              <div class="dsa-filter-group">
+                <label>Topic</label>
+                <select id="dsaTopicFilter">
+                  <option value="all">All topics</option>
+                  <option value="Arrays">Arrays</option>
+                  <option value="Strings">Strings</option>
+                  <option value="Linked Lists">Linked Lists</option>
+                  <option value="Graphs">Graphs</option>
+                  <option value="Dynamic Programming">Dynamic Programming</option>
+                </select>
+              </div>
+              <div class="dsa-filter-group">
+                <label>Difficulty</label>
+                <select id="dsaDifficultyFilter">
+                  <option value="all">All</option>
+                  <option value="Easy">Easy (Green)</option>
+                  <option value="Medium">Medium (Blue)</option>
+                  <option value="Hard">Hard (Red)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Problem list -->
+            <div class="dsa-problem-list" id="dsaProblemList">
+              <!-- Problem cards are static demo; later you can render from DB -->
+              <div class="problem-card" data-topic="Arrays" data-diff="Easy">
+                <div class="problem-header">
+                  <h3 class="problem-title">Two Sum</h3>
+                  <span class="problem-difficulty easy">Easy</span>
+                </div>
+                <div class="problem-meta">
+                  <span class="problem-tag">Arrays</span>
+                  <span>Est. 10–15 min</span>
+                  <span class="problem-company">Asked in: TCS (demo)</span>
+                </div>
+                <button class="btn-secondary problem-btn" type="button"
+                        onclick="openProblem('two-sum')">
+                  Solve this
+                </button>
+              </div>
+
+              <div class="problem-card" data-topic="Strings" data-diff="Medium">
+                <div class="problem-header">
+                  <h3 class="problem-title">Longest Substring Without Repeating Characters</h3>
+                  <span class="problem-difficulty medium">Medium</span>
+                </div>
+                <div class="problem-meta">
+                  <span class="problem-tag">Strings</span>
+                  <span>Est. 20–25 min</span>
+                  <span class="problem-company">Asked in: Infosys (demo)</span>
+                </div>
+                <button class="btn-secondary problem-btn" type="button"
+                        onclick="openProblem('longest-substring')">
+                  Solve this
+                </button>
+              </div>
+
+              <div class="problem-card" data-topic="Dynamic Programming" data-diff="Medium">
+                <div class="problem-header">
+                  <h3 class="problem-title">Climbing Stairs</h3>
+                  <span class="problem-difficulty medium">Medium</span>
+                </div>
+                <div class="problem-meta">
+                  <span class="problem-tag">Dynamic Programming</span>
+                  <span>Est. 15–20 min</span>
+                  <span class="problem-company">Asked in: Wipro (demo)</span>
+                </div>
+                <button class="btn-secondary problem-btn" type="button"
+                        onclick="openProblem('climbing-stairs')">
+                  Solve this
+                </button>
+              </div>
+
+              <div class="problem-card" data-topic="Graphs" data-diff="Hard">
+                <div class="problem-header">
+                  <h3 class="problem-title">Shortest Path in Unweighted Graph</h3>
+                  <span class="problem-difficulty hard">Hard</span>
+                </div>
+                <div class="problem-meta">
+                  <span class="problem-tag">Graphs</span>
+                  <span>Est. 25–35 min</span>
+                  <span class="problem-company">Asked in: Amazon (demo)</span>
+                </div>
+                <button class="btn-secondary problem-btn" type="button"
+                        onclick="openProblem('shortest-path')">
+                  Solve this
+                </button>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <!-- TAB 3: PROBLEM DETAIL + EDITOR -->
+      <div id="dsa-problem-detail" class="dsa-tab">
+        <article class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title" id="problemTitle">Select a problem to start</div>
+              <div class="card-subtitle">
+                <span id="problemTopic">Topic: -</span>
+                &nbsp;·&nbsp;
+                <span id="problemDifficulty" class="problem-difficulty">Difficulty: -</span>
+              </div>
+            </div>
+          </div>
+          <div class="card-body problem-layout">
+            <!-- Left: description + hints -->
+            <div class="problem-desc">
+              <h4>Description</h4>
+              <p id="problemDescription">
+                Choose a problem from the “Problems” tab to load its description and code editor here.
+              </p>
+
+              <div class="problem-section">
+                <h5>Input Format</h5>
+                <pre id="problemInputFormat">-</pre>
+              </div>
+
+              <div class="problem-section">
+                <h5>Output Format</h5>
+                <pre id="problemOutputFormat">-</pre>
+              </div>
+
+              <div class="problem-section">
+                <h5>Constraints</h5>
+                <pre id="problemConstraints">-</pre>
+              </div>
+
+              <div class="problem-section">
+                <h5>Sample Test Case</h5>
+                <pre id="problemSample">
+Input:
+-
+Output:
+-
+                </pre>
+              </div>
+
+              <!-- Hints -->
+              <div class="problem-section">
+                <h5>Hints</h5>
+                <div class="hint-buttons">
+                  <button type="button" class="btn-secondary" id="hint1Btn">Hint 1</button>
+                  <button type="button" class="btn-secondary" id="hint2Btn">Hint 2</button>
+                  <button type="button" class="btn-secondary" id="hint3Btn">Hint 3</button>
+                </div>
+                <div class="hint-output" id="hintOutput">
+                  Click a hint button to see a guided hint.
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: editor + run/submit -->
+            <div class="problem-editor">
+              <div class="editor-header">
+                <div class="editor-lang">
+                  <label for="languageSelect">Language</label>
+                  <select id="languageSelect">
+                    <option value="cpp">C++</option>
+                    <option value="c">C</option>
+                    <option value="java">Java</option>
+                    <option value="python">Python</option>
+                  </select>
+                </div>
+              </div>
+<textarea id="codeEditor" class="code-editor" spellcheck="false">
+ // Starter code will depend on problem (we’ll keep generic demo for now)
+int main() {
+    // Write your solution here.
+    return 0;
+}
+</textarea>
+
+
+              <div class="editor-actions">
+                <div class="editor-input">
+                  <label for="customInput">Custom Input</label>
+                  <textarea id="customInput" placeholder="Type custom input to test your code..."></textarea>
+                </div>
+                <div class="editor-buttons">
+                  <button type="button" class="btn-secondary" id="runCodeBtn">Run</button>
+                  <button type="button" class="btn-primary" id="submitCodeBtn">Submit</button>
+                </div>
+              </div>
+
+              <div class="editor-output">
+                <h5>Output</h5>
+                <pre id="codeOutput">Run or submit to see output here (demo judge).</pre>
+              </div>
+
+              <div class="problem-explanation" id="problemExplanation">
+                <h5>Explanation (after submit)</h5>
+                <p class="explanation-text">
+                  Once you click “Submit”, this section will show the optimal solution idea,
+                  time &amp; space complexity, and interviewer expectations (demo).
+                </p>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <!-- TAB 4: REVISION -->
+      <div id="dsa-revision" class="dsa-tab">
+        <article class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Revision Mode</div>
+              <div class="card-subtitle">Focus on incorrect and “Review later” problems.</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <p style="font-size:13px; margin-bottom:10px;">
+              Demo values: in real app these counts will come from your DB.
+            </p>
+            <p style="font-size:13px;">
+              Incorrect problems: <strong>5</strong><br>
+              Marked “Review later”: <strong>3</strong>
+            </p>
+            <div class="actions-row" style="margin-top:10px;">
+              <button class="btn-primary" type="button">
+                Start incorrect revision quiz
+              </button>
+              <button class="btn-secondary" type="button">
+                Start “review later” quiz
+              </button>
+            </div>
+            <p class="action-caption">
+              Later you can implement timed quizzes that randomly pick 10–20 questions from these buckets.
+            </p>
+          </div>
+        </article>
+      </div>
+
+    </section>
+  </div>
+</div>
+<!--OS & DBms-->
+<!-- ===================== OS & DBMS PAGE ===================== -->
+<div id="os" class="page">
+  <div class="page-inner">
+
+    <div class="osdb-page">
+
+      <!-- ================= OS SECTION ================= -->
+      <section class="osdb-section">
+        <header class="osdb-header">
+          <h1>Operating Systems – Basic Theory</h1>
+          <p>
+            Learn core Operating System concepts with short interview-style Q&A.
+            Click a question to expand and read the explanation.
+          </p>
+        </header>
+
+        <div class="qa-container">
+
+          <!-- OS 1 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">1. What is an Operating System (OS)?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                An OS is system software that manages hardware, runs applications,
+                controls memory, files, security, and provides user interfaces.
+              </p>
+            </div>
+          </div>
+
+          <!-- OS 2 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">2.Define Functions of an OS?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                Key functions: process management, memory handling, file system
+                operations, device management, security, and UI services.
+              </p>
+            </div>
+          </div>
+
+          <!-- OS 3 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">3.what is Types of OS?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                Types: batch OS, multitasking OS, distributed OS, real-time OS,
+                network OS, and mobile OS.
+              </p>
+            </div>
+          </div>
+
+          <!-- OS 4 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">4. What is a process?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                A process is a program in execution with its own memory, stack,
+                registers, and managed by a PCB.
+              </p>
+            </div>
+          </div>
+
+          <!-- OS 5 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">5. What is a thread?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                A thread is a lightweight execution unit that shares code/data
+                with other threads in the same process.
+              </p>
+            </div>
+          </div>
+
+          <!-- OS 6 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">6.Explain Process vs Thread?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                Processes have separate memory; threads share memory. Threads
+                are faster to create and context switch.
+              </p>
+            </div>
+          </div>
+
+          <!-- OS 7 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">7. What is CPU Scheduling?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                CPU scheduling selects a ready process for CPU usage, optimizing
+                throughput, waiting time, and response time.
+              </p>
+            </div>
+          </div>
+
+          <!-- OS 8 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">8.Types of Scheduling algorithms?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                FCFS, SJF, SRTF, Round Robin, Priority Scheduling.
+              </p>
+            </div>
+          </div>
+
+          <!-- OS 9 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">9.Define  Memory Management?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                OS allocates/deallocates memory to processes and prevents
+                interference across processes.
+              </p>
+            </div>
+          </div>
+
+          <!-- OS 10 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">10. what is Paging?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                Paging divides logical memory into pages and physical memory
+                into frames, eliminating external fragmentation.
+              </p>
+            </div>
+          </div>
+
+          <!-- OS 11 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">11.what is segmentation Segmentation?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                Segmentation divides memory into logical segments (code, stack,
+                heap). External fragmentation is possible.
+              </p>
+            </div>
+          </div>
+
+          <!-- OS 12 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">12.Define Virtual Memory?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                VM uses disk as extended RAM, allowing larger processes to run
+                even when fully not in main memory.
+              </p>
+            </div>
+          </div>
+
+          <!-- OS 13 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">13.Explain  Critical Section?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                A section of code accessing shared resources. Only one thread
+                should run it at a time to avoid race conditions.
+              </p>
+            </div>
+          </div>
+
+          <!-- OS 14 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">14.what is Semaphore?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                A counter used for signaling and resource access control using
+                wait (P) and signal (V).
+              </p>
+            </div>
+          </div>
+
+          <!-- OS 15 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">15.what are the Deadlock conditions?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                Mutual exclusion, hold & wait, no preemption, circular wait.
+              </p>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ================= DBMS SECTION ================= -->
+      <section class="osdb-section">
+        <header class="osdb-header">
+          <h1>DBMS – Theory & SQL Practice</h1>
+          <p>Revise fundamentals and practice SQL queries used in interviews.</p>
+        </header>
+
+        <div class="qa-container">
+
+          <!-- DBMS 1 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">1. What is DBMS?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                DBMS is software to store, retrieve, secure, and manage data
+                efficiently.
+              </p>
+            </div>
+          </div>
+
+          <!-- DBMS 2 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">2. What is RDBMS?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                RDBMS stores data in tables with rows & columns. Examples:
+                MySQL, Oracle, PostgreSQL.
+              </p>
+            </div>
+          </div>
+
+          <!-- DBMS 3 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">3. Tables, Tuples, Attributes?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                Table = data set, tuple = row, attribute = column.
+              </p>
+            </div>
+          </div>
+
+          <!-- DBMS 4 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">4.define Primary Key?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                Unique identifier of a record; cannot be NULL.
+              </p>
+            </div>
+          </div>
+
+          <!-- DBMS 5 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">5.Explain Foreign Key?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                Links tables using primary key reference; ensures referential integrity.
+              </p>
+            </div>
+          </div>
+
+          <!-- DBMS 6 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">6.what is Normalization?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                Reduces redundancy and anomalies by decomposing tables.
+              </p>
+            </div>
+          </div>
+
+          <!-- DBMS 7 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">7.What is 1NF/2NF/3NF?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                1NF atomic columns, 2NF no partial dependency, 3NF no transitive dependency.
+              </p>
+            </div>
+          </div>
+
+          <!-- DBMS 8 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">8.Define ER Diagram?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                Entity-relationship diagram for visual DB design.
+              </p>
+            </div>
+          </div>
+
+          <!-- DBMS 9 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">9.What is  ACID?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                Atomicity, Consistency, Isolation, Durability ensure reliable transactions.
+              </p>
+            </div>
+          </div>
+
+          <!-- DBMS 10 -->
+          <div class="qa-item">
+            <button class="qa-question">
+              <span class="qa-q-title">10.Define Transaction?</span>
+              <span class="qa-toggle">⌄</span>
+            </button>
+            <div class="qa-answer">
+              <p>
+                Logical unit of work that fully commits or fully rolls back.
+              </p>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ================= SQL PRACTICE ================= -->
+        <div class="sql-section">
+          <h2>SQL Practice Questions</h2>
+
+          <!-- SQL 1 -->
+          <div class="sql-card">
+            <strong>1. Students with marks > 50</strong>
+            <pre class="sql-code">
+SELECT id, name, marks
+FROM Students
+WHERE marks > 50;
+            </pre>
+          </div>
+
+          <!-- SQL 2 -->
+          <div class="sql-card">
+            <strong>2. Count employees per department</strong>
+            <pre class="sql-code">
+SELECT department, COUNT(*)
+FROM Employees
+GROUP BY department;
+            </pre>
+          </div>
+
+          <!-- SQL 3 -->
+          <div class="sql-card">
+            <strong>3. Employee with highest salary</strong>
+            <pre class="sql-code">
+SELECT *
+FROM Employees
+WHERE salary = (SELECT MAX(salary) FROM Employees);
+            </pre>
+          </div>
+
+        </div>
+
+      </section>
+
+    </div>
+
+  </div>
+</div>
+<!-- ================= END OS & DBMS PAGE ================= -->
+
+
+<!-- ===================== HR QUESTIONS PAGE ===================== -->
+<div id="hr" class="page">
+  <div class="page-inner">
+    <div class="hr-wrapper">
+
+      <!-- Left mini-sidebar -->
+      <aside class="hr-sidebar">
+        <div class="hr-sidebar-title">HR Prep Guide</div>
+        <a href="#hr-all">📝 All HR Questions</a>
+      </aside>
+
+      <!-- Right content -->
+      <div class="hr-main">
+        <!-- Header card -->
+        <section class="hr-header-card">
+          <h1>💼 Human Resource (HR) Interview Preparation</h1>
+          <p>Practice internship-focused HR questions with structured answers, explanations, and tips.</p>
+        </section>
+
+        <!-- All questions in one block -->
+        <section class="hr-qa-container" id="hr-all">
+
+          <!-- Q1 -->
+          <div class="hr-question-card">
+            <h3>1. Tell me about yourself.</h3>
+            <button class="hr-toggle-btn" onclick="toggleHrContent('hr-q1')">Reveal Details</button>
+            <div id="hr-q1" class="hr-toggle-content">
+              <div class="hr-answer">
+                <strong>Sample Answer:</strong>
+                I am a Computer Science engineering student with a strong interest in web development
+                and problem solving. Recently I worked on an InternHub-style project where I implemented
+                authentication, dashboards, and database connectivity using PHP and MySQL.
+                I enjoy building practical projects, improving my DSA skills, and I am looking for an
+                internship where I can apply what I know and learn from real-world systems.
+              </div>
+              <div class="hr-explanation">
+                <strong>Explanation:</strong>
+                Start with who you are (degree/branch), then highlight skills and projects that are relevant
+                to the role, and end with what you are looking for now.
+              </div>
+              <div class="hr-tips">
+                <strong>Tip:</strong>
+                Practice a 60–90 second version. Avoid personal details; keep it professional and internship-focused.
+              </div>
+            </div>
+          </div>
+
+          <!-- Q2 -->
+          <div class="hr-question-card">
+            <h3>2. Why do you want this internship?</h3>
+            <button class="hr-toggle-btn" onclick="toggleHrContent('hr-q2')">Reveal Details</button>
+            <div id="hr-q2" class="hr-toggle-content">
+              <div class="hr-answer">
+                <strong>Sample Answer:</strong>
+                This internship matches my interest in software development and gives me exposure
+                to how real projects are built and maintained. I want to learn industry best
+                practices – code reviews, version control, deployment – and at the same time
+                contribute to ongoing work instead of only doing academic projects.
+              </div>
+              <div class="hr-explanation">
+                <strong>Explanation:</strong>
+                Connect the company/role with your skills and learning goals. Show that you want exposure
+                to real systems and that you are ready to contribute.
+              </div>
+              <div class="hr-tips">
+                <strong>Tip:</strong>
+                Avoid answers like “I want a certificate” or “I just need an internship for my resume.”
+              </div>
+            </div>
+          </div>
+
+          <!-- Q3 -->
+          <div class="hr-question-card">
+            <h3>3. What are your strengths?</h3>
+            <button class="hr-toggle-btn" onclick="toggleHrContent('hr-q3')">Reveal Details</button>
+            <div id="hr-q3" class="hr-toggle-content">
+              <div class="hr-answer">
+                <strong>Sample Answer:</strong>
+                My strengths are consistency, willingness to learn, and problem-solving.
+                When I face an issue in code, I break it into smaller parts, debug logically,
+                check documentation, and try different approaches until it works.
+                I also take feedback seriously and use it to improve.
+              </div>
+              <div class="hr-explanation">
+                <strong>Explanation:</strong>
+                Pick 2–3 strengths that match the role (like learning, ownership, communication) and back
+                them with a small example.
+              </div>
+              <div class="hr-tips">
+                <strong>Tip:</strong>
+                Don’t just list strengths; always link them to your projects or college work.
+              </div>
+            </div>
+          </div>
+
+          <!-- Q4 -->
+          <div class="hr-question-card">
+            <h3>4. What is your biggest weakness?</h3>
+            <button class="hr-toggle-btn" onclick="toggleHrContent('hr-q4')">Reveal Details</button>
+            <div id="hr-q4" class="hr-toggle-content">
+              <div class="hr-answer">
+                <strong>Sample Answer:</strong>
+                Sometimes I spend too much time trying to perfect small details.
+                I am working on this by first completing a working version within the deadline
+                and then using the remaining time only for important improvements.
+              </div>
+              <div class="hr-explanation">
+                <strong>Explanation:</strong>
+                Show self-awareness and that you are actively working on improving. The weakness should
+                not be something that makes you unfit for the internship.
+              </div>
+              <div class="hr-tips">
+                <strong>Tip:</strong>
+                Never say “I have no weaknesses” or give a weakness that is critical for the job.
+              </div>
+            </div>
+          </div>
+
+          <!-- Q5 -->
+          <div class="hr-question-card">
+            <h3>5. Why should we hire you as an intern?</h3>
+            <button class="hr-toggle-btn" onclick="toggleHrContent('hr-q5')">Reveal Details</button>
+            <div id="hr-q5" class="hr-toggle-content">
+              <div class="hr-answer">
+                <strong>Sample Answer:</strong>
+                I have a good foundation in programming and web development,
+                and I am genuinely interested in learning from real projects.
+                I am responsible, quick to learn, and ready to put in consistent effort.
+                I may not know everything on day one, but I learn fast and will work hard
+                to contribute to your team.
+              </div>
+              <div class="hr-explanation">
+                <strong>Explanation:</strong>
+                Combine your skills, learning attitude, and reliability. Make them feel you
+                will be a low-risk, high-effort intern.
+              </div>
+              <div class="hr-tips">
+                <strong>Tip:</strong>
+                Avoid generic lines only. Add 1–2 concrete skills (e.g., “I know PHP + MySQL and basic DSA”).
+              </div>
+            </div>
+          </div>
+
+          <!-- Q6 -->
+          <div class="hr-question-card">
+            <h3>6. How do you work in a team?</h3>
+            <button class="hr-toggle-btn" onclick="toggleHrContent('hr-q6')">Reveal Details</button>
+            <div id="hr-q6" class="hr-toggle-content">
+              <div class="hr-answer">
+                <strong>Sample Answer:</strong>
+                I try to be clear about my responsibilities and communicate regularly.
+                I share progress with teammates, ask for help when needed, and help others
+                if I know the solution. I believe respectful communication and transparency
+                are key for good teamwork.
+              </div>
+              <div class="hr-explanation">
+                <strong>Explanation:</strong>
+                Show that you value clarity, communication, and collaboration instead of working alone.
+              </div>
+              <div class="hr-tips">
+                <strong>Tip:</strong>
+                You can mention one mini-college or project example where teamwork helped you.
+              </div>
+            </div>
+          </div>
+
+          <!-- Q7 -->
+          <div class="hr-question-card">
+            <h3>7. How do you handle stress or tight deadlines?</h3>
+            <button class="hr-toggle-btn" onclick="toggleHrContent('hr-q7')">Reveal Details</button>
+            <div id="hr-q7" class="hr-toggle-content">
+              <div class="hr-answer">
+                <strong>Sample Answer:</strong>
+                I try to stay calm and focus on the next important task instead of worrying
+                about everything at once. I avoid multitasking too much and work in small
+                focused blocks. If the time is really tight, I discuss with the mentor or
+                team to prioritise what must be done first.
+              </div>
+              <div class="hr-explanation">
+                <strong>Explanation:</strong>
+                HR wants to see that you won’t panic under pressure and that you know how to communicate.
+              </div>
+              <div class="hr-tips">
+                <strong>Tip:</strong>
+                Mention one example: exam + project week, mini project deadline, etc.
+              </div>
+            </div>
+          </div>
+
+          <!-- Q8 -->
+          <div class="hr-question-card">
+            <h3>8. Describe a challenge you faced and how you handled it.</h3>
+            <button class="hr-toggle-btn" onclick="toggleHrContent('hr-q8')">Reveal Details</button>
+            <div id="hr-q8" class="hr-toggle-content">
+              <div class="hr-answer">
+                <strong>Sample Answer:</strong>
+                While building a PHP–MySQL project, I repeatedly got connection errors.
+                Instead of giving up, I checked error logs, verified credentials, tested a
+                simple script, and read documentation. Finally I found a misconfigured
+                host and database name in the config file. This taught me to debug
+                systematically and stay patient under pressure.
+              </div>
+              <div class="hr-explanation">
+                <strong>Explanation:</strong>
+                Use the STAR method (Situation, Task, Action, Result) and show structured problem solving.
+              </div>
+              <div class="hr-tips">
+                <strong>Tip:</strong>
+                Keep the story short (40–60 seconds) but clear.
+              </div>
+            </div>
+          </div>
+
+          <!-- Q9 -->
+          <div class="hr-question-card">
+            <h3>9. Describe a failure and what you learned from it.</h3>
+            <button class="hr-toggle-btn" onclick="toggleHrContent('hr-q9')">Reveal Details</button>
+            <div id="hr-q9" class="hr-toggle-content">
+              <div class="hr-answer">
+                <strong>Sample Answer:</strong>
+                I once started an academic project too late and finished it just before
+                the submission date. The output worked but I was not happy with the quality.
+                I learned to start early, create a plan, and finish a basic version well
+                before the deadline so there is time for testing and improvement.
+              </div>
+              <div class="hr-explanation">
+                <strong>Explanation:</strong>
+                Show ownership (you accept the mistake) and growth (you changed your approach).
+              </div>
+              <div class="hr-tips">
+                <strong>Tip:</strong>
+                Do not blame teachers, teammates, or college fully. Take responsibility.
+              </div>
+            </div>
+          </div>
+
+          <!-- Q10 -->
+          <div class="hr-question-card">
+            <h3>10. What motivates you at work or during projects?</h3>
+            <button class="hr-toggle-btn" onclick="toggleHrContent('hr-q10')">Reveal Details</button>
+            <div id="hr-q10" class="hr-toggle-content">
+              <div class="hr-answer">
+                <strong>Sample Answer:</strong>
+                I am motivated when I solve real problems and see my work actually running —
+                like a website or feature used by others. Learning new things and improving
+                my skills regularly also keeps me excited.
+              </div>
+              <div class="hr-explanation">
+                <strong>Explanation:</strong>
+                Connect motivation to learning, impact, and growth – not only to salary or marks.
+              </div>
+              <div class="hr-tips">
+                <strong>Tip:</strong>
+                You can also mention feedback from mentors or users as a motivator.
+              </div>
+            </div>
+          </div>
+
+          <!-- Q11 -->
+          <div class="hr-question-card">
+            <h3>11. Tell me about a conflict you faced and how you resolved it.</h3>
+            <button class="hr-toggle-btn" onclick="toggleHrContent('hr-q11')">Reveal Details</button>
+            <div id="hr-q11" class="hr-toggle-content">
+              <div class="hr-answer">
+                <strong>Sample Answer:</strong>
+                In a team project, two members disagreed about design choices.
+                I facilitated a short meeting to gather everyone’s input, compared options
+                objectively, and helped us decide based on project goals and deadline.
+                This built better collaboration and we delivered on time.
+              </div>
+              <div class="hr-explanation">
+                <strong>Explanation:</strong>
+                Show calm communication, listening, and decision-making based on project goals.
+              </div>
+              <div class="hr-tips">
+                <strong>Tip:</strong>
+                Avoid gossip or blaming; keep it professional.
+              </div>
+            </div>
+          </div>
+
+          <!-- Q12 -->
+          <div class="hr-question-card">
+            <h3>12. What if you disagree with your manager’s decision?</h3>
+            <button class="hr-toggle-btn" onclick="toggleHrContent('hr-q12')">Reveal Details</button>
+            <div id="hr-q12" class="hr-toggle-content">
+              <div class="hr-answer">
+                <strong>Sample Answer:</strong>
+                I would first try to fully understand their reasoning.
+                If I still see potential risks, I would respectfully share my perspective
+                with supporting facts. After the discussion, I will support the final decision
+                and execute it professionally.
+              </div>
+              <div class="hr-explanation">
+                <strong>Explanation:</strong>
+                They want to see that you are respectful, open to discussion, and not stubborn.
+              </div>
+              <div class="hr-tips">
+                <strong>Tip:</strong>
+                Avoid saying “I will always follow whatever they say” or “I will argue until they agree”.
+              </div>
+            </div>
+          </div>
+
+          <!-- Q13 -->
+          <div class="hr-question-card">
+            <h3>13. Tell me about a time you learned something quickly.</h3>
+            <button class="hr-toggle-btn" onclick="toggleHrContent('hr-q13')">Reveal Details</button>
+            <div id="hr-q13" class="hr-toggle-content">
+              <div class="hr-answer">
+                <strong>Sample Answer:</strong>
+                When I started using PHP and MySQL, I only knew the basics.
+                I followed a few tutorials, read documentation, and then directly
+                built a small login/registration module. By debugging my own mistakes,
+                I learned faster than just reading theory.
+              </div>
+              <div class="hr-explanation">
+                <strong>Explanation:</strong>
+                Highlight your ability to self-learn using docs, tutorials, and practice.
+              </div>
+              <div class="hr-tips">
+                <strong>Tip:</strong>
+                Choose an example matching the tech stack of the company if possible.
+              </div>
+            </div>
+          </div>
+
+          <!-- Q14 -->
+          <div class="hr-question-card">
+            <h3>14. What do you expect to learn from this internship?</h3>
+            <button class="hr-toggle-btn" onclick="toggleHrContent('hr-q14')">Reveal Details</button>
+            <div id="hr-q14" class="hr-toggle-content">
+              <div class="hr-answer">
+                <strong>Sample Answer:</strong>
+                I expect to learn how real projects are planned, developed, tested,
+                and deployed in a team environment. I also want to improve my coding
+                standards, understand best practices like version control and clean code,
+                and strengthen my communication and teamwork.
+              </div>
+              <div class="hr-explanation">
+                <strong>Explanation:</strong>
+                Show that you care about process (SDLC), clean code, and soft skills – not only coding.
+              </div>
+              <div class="hr-tips">
+                <strong>Tip:</strong>
+                You can mention specific tools (Git, code reviews, CI/CD) if relevant.
+              </div>
+            </div>
+          </div>
+
+          <!-- Q15 -->
+          <div class="hr-question-card">
+            <h3>15. Do you have any questions for us?</h3>
+            <button class="hr-toggle-btn" onclick="toggleHrContent('hr-q15')">Reveal Details</button>
+            <div id="hr-q15" class="hr-toggle-content">
+              <div class="hr-answer">
+                <strong>Sample Answer:</strong>
+                Yes. I would like to know more about the type of projects interns usually
+                work on, the tech stack used by the team, and how mentorship or feedback
+                is provided. I am also interested in understanding what a successful intern
+                looks like in your organisation.
+              </div>
+              <div class="hr-explanation">
+                <strong>Explanation:</strong>
+                Good questions show that you are serious and thinking long-term about learning and contribution.
+              </div>
+              <div class="hr-tips">
+                <strong>Tip:</strong>
+                Prepare 2–3 questions in advance; never say “No, I don’t have any questions.”
+              </div>
+            </div>
+          </div>
+
+        </section>
+      </div>
+
+    </div>
+  </div>
+</div>
+<!-- ================= END HR QUESTIONS PAGE ===================== -->
+
+
+
+            <!-- MOCK INTERVIEWS PAGE -->
+            <div id="mock-interviews" class="page">
+                <div class="page-inner">
+                    <div class="mock-interviews-info">
+                        <h2>Live Mock Interviews</h2>
+                        <p>Practice real-time interviews with video, audio, and structured feedback.</p>
+                        <div id="mock-status">No live interview session started yet.</div>
+                        <button id="startLiveMockBtn" style="padding:10px 18px; border-radius:999px; border:none; font-weight:500; cursor:pointer;">
+                            Start Live Mock (Connect)
+                        </button>
+                        <p style="margin-top:15px; font-size:0.9rem;">
+                            When you integrate ZegoCloud, the live interview UI will load in the space below.
+                        </p>
+                    </div>
+                    <!-- Container for Zego or any video call UI -->
+                    <div id="root"></div>
+                </div>
+            </div>
+
+            <!-- RESOURCES PAGE -->
+            <div id="resources" class="page">
+                <div class="page-inner">
+                    <h1>Resources</h1>
+                    <p>You can list useful links here:</p>
+                    <ul>
+                        <li>DSA playlists</li>
+                        <li>System Design blogs / videos</li>
+                        <li>HR & behavioral question guides</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- PROFILE PAGE -->
+           <!-- PROFILE PAGE -->
+<!-- PROFILE PAGE -->
+<div id="profile" class="page">
+    <div class="profile-wrapper">
+        <h1>Your Profile</h1>
+
+        <?php if ($profileSaved): ?>
+            <div class="profile-alert profile-alert-success" id="profileSavedAlert">
+                Profile updated successfully.
+            </div>
+        <?php endif; ?>
+
+        <div class="profile-card">
+            <!-- LEFT: Avatar and summary -->
+            <div class="profile-left">
+                <div class="profile-avatar">
+                    <span><?php echo htmlspecialchars($avatarInitial, ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
+                <div class="profile-name">
+                    <?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?>
+                </div>
+                <div class="profile-email">
+                    <?php echo htmlspecialchars($_SESSION['email'], ENT_QUOTES, 'UTF-8'); ?>
+                </div>
+                <div class="profile-tag">
+                    Interview-ready profile
+                </div>
+                <ul class="profile-summary-list">
+                    <li><strong>Role:</strong>
+                        <?php echo htmlspecialchars($profile['primary_role'] ?: 'Not set', ENT_QUOTES, 'UTF-8'); ?>
+                    </li>
+                    <li><strong>Stack:</strong>
+                        <?php echo htmlspecialchars($profile['primary_stack'] ?: 'Not set', ENT_QUOTES, 'UTF-8'); ?>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- RIGHT: Editable form -->
+            <div class="profile-right">
+                <form class="profile-form" method="POST" action="save_profile.php">
+                    <div class="profile-form-row">
+                        <label for="display_name">Display name</label>
+                        <input
+                            type="text"
+                            id="display_name"
+                            name="display_name"
+                            placeholder="e.g. Naveen M"
+                            value="<?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?>"
+                        >
+                    </div>
+
+                    <div class="profile-form-row">
+                        <label for="bio">Short bio</label>
+                        <textarea
+                            id="bio"
+                            name="bio"
+                            placeholder="Final year CSE student preparing for software developer roles."
+                        ><?php echo htmlspecialchars($profile['bio'], ENT_QUOTES, 'UTF-8'); ?></textarea>
+                    </div>
+
+                    <div class="profile-form-row">
+                        <label for="github_url">GitHub profile URL</label>
+                        <input
+                            type="url"
+                            id="github_url"
+                            name="github_url"
+                            placeholder="https://github.com/your-username"
+                            value="<?php echo htmlspecialchars($profile['github_url'], ENT_QUOTES, 'UTF-8'); ?>"
+                        >
+                    </div>
+
+                    <div class="profile-form-row">
+                        <label for="linkedin_url">LinkedIn profile URL</label>
+                        <input
+                            type="url"
+                            id="linkedin_url"
+                            name="linkedin_url"
+                            placeholder="https://www.linkedin.com/in/your-profile"
+                            value="<?php echo htmlspecialchars($profile['linkedin_url'], ENT_QUOTES, 'UTF-8'); ?>"
+                        >
+                    </div>
+
+                    <div class="profile-form-row">
+                        <label for="primary_role">Target role</label>
+                        <input
+                            type="text"
+                            id="primary_role"
+                            name="primary_role"
+                            placeholder="e.g. Software Developer, Backend Engineer"
+                            value="<?php echo htmlspecialchars($profile['primary_role'], ENT_QUOTES, 'UTF-8'); ?>"
+                        >
+                    </div>
+
+                    <div class="profile-form-row">
+                        <label for="primary_stack">Primary stack / skills</label>
+                        <input
+                            type="text"
+                            id="primary_stack"
+                            name="primary_stack"
+                            placeholder="e.g. Java, Spring Boot, MySQL, DSA"
+                            value="<?php echo htmlspecialchars($profile['primary_stack'], ENT_QUOTES, 'UTF-8'); ?>"
+                        >
+                    </div>
+
+                    <button type="submit" class="profile-save-btn">
+                        Save Profile
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+
+        </main>
+    </div>
+<script>
+
+
+
+
+// ===== DSA PRACTICE LOGIC =====
+
+// Tab switching inside DSA Practice
+const dsaTabButtons = document.querySelectorAll('.dsa-tab-btn');
+const dsaTabs = document.querySelectorAll('.dsa-tab');
+
+function setActiveDsaTab(id) {
+  dsaTabButtons.forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-tab') === id);
+  });
+  dsaTabs.forEach(tab => {
+    tab.classList.toggle('active', tab.id === id);
+  });
+}
+
+dsaTabButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn.getAttribute('data-tab');
+    setActiveDsaTab(target);
+  });
+});
+
+// When "Start Easy Problems" clicked on overview -> go to Problems tab
+const dsaStartEasyBtn = document.getElementById('dsaStartEasyBtn');
+if (dsaStartEasyBtn) {
+  dsaStartEasyBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    setActiveDsaTab('dsa-problems');
+  });
+}
+
+// Problem filters (simple front-end filter)
+const topicFilter = document.getElementById('dsaTopicFilter');
+const diffFilter = document.getElementById('dsaDifficultyFilter');
+const problemCards = document.querySelectorAll('.problem-card');
+
+function applyProblemFilters() {
+  const topicVal = topicFilter ? topicFilter.value : 'all';
+  const diffVal = diffFilter ? diffFilter.value : 'all';
+
+  problemCards.forEach(card => {
+    const cardTopic = card.getAttribute('data-topic');
+    const cardDiff = card.getAttribute('data-diff');
+
+    const topicMatch = (topicVal === 'all' || cardTopic === topicVal);
+    const diffMatch = (diffVal === 'all' || cardDiff === diffVal);
+
+    card.style.display = (topicMatch && diffMatch) ? 'flex' : 'none';
+  });
+}
+
+if (topicFilter && diffFilter) {
+  topicFilter.addEventListener('change', applyProblemFilters);
+  diffFilter.addEventListener('change', applyProblemFilters);
+}
+
+// Problem data (demo)
+const dsaProblemsData = {
+  'two-sum': {
+    title: 'Two Sum',
+    topic: 'Arrays',
+    difficulty: 'Easy',
+    difficultyClass: 'easy',
+    description: 'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.',
+    inputFormat: 'First line: integer n\nSecond line: n space-separated integers (array)\nThird line: integer target',
+    outputFormat: 'Two indices i and j (0-based) such that nums[i] + nums[j] == target. If multiple answers, print any one.',
+    constraints: '2 <= n <= 10^5\n-10^9 <= nums[i] <= 10^9\n-10^9 <= target <= 10^9',
+    sample: 'Input:\n4\n2 7 11 15\n9\n\nOutput:\n0 1',
+    hints: [
+      'Think in terms of complement: for each number x, you need target - x.',
+      'Use a hashmap to store value -> index while traversing the array once.',
+      'Algorithm: iterate through array, for each nums[i], check if (target - nums[i]) is already in map. If yes, answer found. Otherwise, store nums[i] in map.'
+    ],
+    explanation: 'Optimal solution uses a hashmap to achieve O(n) time. Brute force O(n^2) is not acceptable for large n.'
+  },
+  'longest-substring': {
+    title: 'Longest Substring Without Repeating Characters',
+    topic: 'Strings',
+    difficulty: 'Medium',
+    difficultyClass: 'medium',
+    description: 'Given a string s, find the length of the longest substring without repeating characters.',
+    inputFormat: 'Single line: string s',
+    outputFormat: 'Single integer: length of the longest substring without repeating characters.',
+    constraints: '1 <= |s| <= 10^5\ns consists of printable ASCII characters.',
+    sample: 'Input:\nabcabcbb\n\nOutput:\n3',
+    hints: [
+      'Think about growing a window of non-repeating characters.',
+      'Use a sliding window with two pointers and a map to store last index of each character.',
+      'Whenever you see a repeated character, move the left pointer to max(current_left, last_index[char] + 1).'
+    ],
+    explanation: 'Sliding window with hashmap gives O(n) time. Keeping track of last seen index allows you to shrink the window efficiently.'
+  },
+  'climbing-stairs': {
+    title: 'Climbing Stairs',
+    topic: 'Dynamic Programming',
+    difficulty: 'Medium',
+    difficultyClass: 'medium',
+    description: 'You are climbing a staircase. It takes n steps to reach the top. Each time you can climb 1 or 2 steps. In how many distinct ways can you climb to the top?',
+    inputFormat: 'Single integer n',
+    outputFormat: 'Single integer: number of distinct ways.',
+    constraints: '1 <= n <= 45',
+    sample: 'Input:\n3\n\nOutput:\n3',
+    hints: [
+      'Try writing out answers for small n (1, 2, 3, 4...) and see a pattern.',
+      'Number of ways to reach step i = ways to reach i-1 + ways to reach i-2.',
+      'This becomes a Fibonacci-like DP: dp[i] = dp[i-1] + dp[i-2].'
+    ],
+    explanation: 'A simple DP with O(n) time and O(1) or O(n) space. This is a classic introduction to DP and recurrence relations.'
+  },
+  'shortest-path': {
+    title: 'Shortest Path in Unweighted Graph',
+    topic: 'Graphs',
+    difficulty: 'Hard',
+    difficultyClass: 'hard',
+    description: 'Given an unweighted undirected graph and a source vertex s, find the shortest distance from s to all vertices.',
+    inputFormat: 'First line: n (vertices), m (edges)\nNext m lines: u v (edge between u and v)\nLast line: source s',
+    outputFormat: 'n space-separated integers: dist[i] = shortest distance from s to i, or -1 if unreachable.',
+    constraints: '1 <= n <= 10^5\n0 <= m <= 2 * 10^5',
+    sample: 'Input:\n4 4\n0 1\n0 2\n1 2\n2 3\n0\n\nOutput:\n0 1 1 2',
+    hints: [
+      'Unweighted shortest path is a perfect use case for BFS.',
+      'Use a queue and distance array initialized to -1. dist[s] = 0.',
+      'During BFS, when you first visit a node v from u, set dist[v] = dist[u] + 1.'
+    ],
+    explanation: 'Breadth-first search from the source gives shortest path lengths in O(n + m) time for an unweighted graph.'
+  }
+};
+
+// make openProblem globally accessible for inline onclick
+function openProblem(id) {
+  const data = dsaProblemsData[id];
+  if (!data) return;
+
+  // Fill basic fields
+  document.getElementById('problemTitle').textContent = data.title;
+  document.getElementById('problemTopic').textContent = 'Topic: ' + data.topic;
+  const diffEl = document.getElementById('problemDifficulty');
+  diffEl.textContent = data.difficulty;
+  diffEl.className = 'problem-difficulty ' + data.difficultyClass;
+
+  document.getElementById('problemDescription').textContent = data.description;
+  document.getElementById('problemInputFormat').textContent = data.inputFormat;
+  document.getElementById('problemOutputFormat').textContent = data.outputFormat;
+  document.getElementById('problemConstraints').textContent = data.constraints;
+  document.getElementById('problemSample').textContent = 'Input:\n' + data.sample.split('\n\n')[0].replace('Input:\n','') +
+    '\n\nOutput:\n' + data.sample.split('\n\n')[1].replace('Output:\n','');
+
+  // Reset hints
+  document.getElementById('hintOutput').textContent = 'Click a hint button to see a guided hint.';
+  document.getElementById('hint1Btn').onclick = () => {
+    document.getElementById('hintOutput').textContent = data.hints[0];
+  };
+  document.getElementById('hint2Btn').onclick = () => {
+    document.getElementById('hintOutput').textContent = data.hints[1];
+  };
+  document.getElementById('hint3Btn').onclick = () => {
+    document.getElementById('hintOutput').textContent = data.hints[2];
+  };
+
+  // Reset editor output and explanation
+  document.getElementById('codeOutput').textContent =
+    'Run or submit to see output here (demo judge).';
+  document.querySelector('#problemExplanation .explanation-text').textContent =
+    'After you click “Submit”, this will show the optimal idea and complexity. (Demo text for ' +
+    data.title + ').';
+
+  // Switch to Problem View tab
+  setActiveDsaTab('dsa-problem-detail');
+}
+window.openProblem = openProblem;
+
+// Run / Submit demo handlers
+const runCodeBtn = document.getElementById('runCodeBtn');
+const submitCodeBtn = document.getElementById('submitCodeBtn');
+const codeOutput = document.getElementById('codeOutput');
+
+if (runCodeBtn && codeOutput) {
+  runCodeBtn.addEventListener('click', () => {
+    codeOutput.textContent =
+      'Mock run: In a real system, your code would be compiled and executed with sample + hidden test cases.\n\n' +
+      'For now, this is just a front-end demo.';
+  });
+}
+
+if (submitCodeBtn && codeOutput) {
+  submitCodeBtn.addEventListener('click', () => {
+    codeOutput.textContent =
+      'Mock submit: Treat this as all tests executed. Integrate with backend judge later.\n\n' +
+      'Status: Demo Accepted ✅';
+
+    const explanation = document.querySelector('#problemExplanation .explanation-text');
+    if (explanation) {
+      explanation.textContent =
+        'Demo explanation: In the real app, this section will show the optimal approach, time and space complexity, ' +
+        'and common interviewer follow-up questions.';
+    }
+  });
+}
+
+    // Initialize Lucide icons
+    if (window.lucide) {
+        window.lucide.createIcons();
+    }
+
+    // Page switching logic (sidebar + top nav)
+    const pages = document.querySelectorAll('.page');
+    const sidebarLinks = document.querySelectorAll('.sidebar nav a[data-page]');
+    const topNavLinks = document.querySelectorAll('.iv-dashboard .nav-link[data-page]');
+
+    function setActivePage(pageId) {
+        pages.forEach(p => p.classList.toggle('active', p.id === pageId));
+
+        sidebarLinks.forEach(link => {
+            link.classList.toggle('active', link.getAttribute('data-page') === pageId);
+        });
+
+        topNavLinks.forEach(link => {
+            link.classList.toggle('active', link.getAttribute('data-page') === pageId);
+        });
+    }
+
+    sidebarLinks.forEach(link => {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = this.getAttribute('data-page');
+            setActivePage(target);
+        });
+    });
+
+    topNavLinks.forEach(link => {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = this.getAttribute('data-page');
+            setActivePage(target);
+        });
+    });
+
+    // Mobile sidebar toggle
+    const sidebar = document.getElementById('sidebar');
+    const mainContent = document.getElementById('mainContent');
+    const hamburger = document.getElementById('hamburger');
+
+    hamburger.addEventListener('click', () => {
+        sidebar.classList.toggle('open');
+    });
+
+    // Top nav mobile toggle
+    const topNavToggle = document.getElementById('topNavToggle');
+    const topNavLinksContainer = document.getElementById('topNavLinks');
+
+    if (topNavToggle) {
+        topNavToggle.addEventListener('click', () => {
+            topNavLinksContainer.classList.toggle('mobile-open');
+        });
+    }
+
+    // Dark mode toggle with localStorage
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    const storedTheme = localStorage.getItem('theme');
+    if (storedTheme === 'dark') {
+        document.body.classList.add('dark');
+    }
+
+    darkModeToggle.addEventListener('click', () => {
+        document.body.classList.toggle('dark');
+        const isDark = document.body.classList.contains('dark');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    });
+
+    // Logout
+    const logoutBtn = document.getElementById('logoutBtn');
+    logoutBtn.addEventListener('click', () => {
+        if (confirm('Are you sure you want to logout?')) {
+            window.location.href = 'logout.php';
+        }
+    });
+
+    // Weekly progress chart data
+    const weeklyData = {
+        Mon: 12,
+        Tue: 18,
+        Wed: 10,
+        Thu: 20,
+        Fri: 15,
+        Sat: 7,
+        Sun: 3
+    };
+    const maxValue = Math.max(...Object.values(weeklyData)) || 1;
+    const bars = document.querySelectorAll('.chart-bar');
+
+    bars.forEach(bar => {
+        const day = bar.getAttribute('data-day');
+        const value = weeklyData[day] || 0;
+        const heightPercent = (value / maxValue) * 100;
+        setTimeout(() => {
+            bar.style.height = heightPercent + '%';
+        }, 100);
+        bar.title = day + ': ' + value + ' questions';
+    });
+
+    // Hook buttons on dashboard to navigate
+    const startPracticeBtn = document.getElementById('startPracticeBtn');
+    const startMockBtn = document.getElementById('startMockBtn');
+
+    if (startPracticeBtn) {
+        startPracticeBtn.addEventListener('click', () => setActivePage('practice'));
+    }
+    if (startMockBtn) {
+        startMockBtn.addEventListener('click', () => setActivePage('mock-interviews'));
+    }
+
+    // ====== Zego: load SDK only when needed ======
+    function loadZegoSdk(callback) {
+        if (window.ZegoUIKitPrebuilt) {
+            callback();
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js';
+        script.onload = callback;
+        document.body.appendChild(script);
+    }
+
+    function getUrlParams(url) {
+        const urlStr = url.split('?')[1] || '';
+        const urlSearchParams = new URLSearchParams(urlStr);
+        return Object.fromEntries(urlSearchParams.entries());
+    }
+
+    function startZegoRoom() {
+        const params = getUrlParams(window.location.href);
+        const roomID = params['roomID'] || (Math.floor(Math.random() * 10000) + "");
+        const userID = Math.floor(Math.random() * 10000) + "";
+        const userName = "userName" + userID;
+
+        const appID = 316913873;
+        const serverSecret = "9954f4fc821cf38b6cb5813bff183171";
+
+        const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
+            appID,
+            serverSecret,
+            roomID,
+            userID,
+            userName
+        );
+
+        const container = document.querySelector("#root");
+        if (!container) return;
+
+        container.style.display = "block";
+
+        const zp = ZegoUIKitPrebuilt.create(kitToken);
+        zp.joinRoom({
+            container: container,
+            sharedLinks: [{
+                name: 'Personal link',
+                url: window.location.protocol + '//' + window.location.host + window.location.pathname + '?roomID=' + roomID,
+            }],
+            scenario: {
+                mode: ZegoUIKitPrebuilt.VideoConference,
+            },
+            turnOnMicrophoneWhenJoining: true,
+            turnOnCameraWhenJoining: true,
+            showMyCameraToggleButton: true,
+            showMyMicrophoneToggleButton: true,
+            showAudioVideoSettingsButton: true,
+            showScreenSharingButton: true,
+            showTextChat: true,
+            showUserList: true,
+            maxUsers: 2,
+            layout: "Auto",
+            showLayoutButton: false,
+            onLeaveRoom: () => {
+                container.innerHTML = "";
+                container.style.display = "none";
+                if (mockStatus) {
+                    mockStatus.textContent = "No live interview session started yet.";
+                }
+            }
+        });
+    }
+
+    // START LIVE MOCK BUTTON
+    const startLiveMockBtn = document.getElementById('startLiveMockBtn');
+    const mockStatus = document.getElementById('mock-status');
+
+    if (startLiveMockBtn) {
+        startLiveMockBtn.addEventListener('click', () => {
+            if (mockStatus) {
+                mockStatus.textContent = "Connecting to live mock session...";
+            }
+
+            setActivePage('mock-interviews');
+
+            const container = document.querySelector("#root");
+            if (container) {
+                container.style.display = "block";
+                container.innerHTML = "";
+                container.style.marginTop = "40px";
+            }
+
+            loadZegoSdk(() => {
+                if (mockStatus) {
+                    mockStatus.textContent = "Live mock session is running.";
+                }
+                startZegoRoom();
+            });
+        });
+    }
+
+    // ====== UPDATE GOAL -> GO TO PROFILE ======
+    const updateGoalBtn = document.getElementById('updateGoalBtn');
+    if (updateGoalBtn) {
+        updateGoalBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            setActivePage('profile');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    }
+
+
+    // ===== DSA THEORY Q&A FUNCTIONALITY =====
+(function () {
+    const qaItems = document.querySelectorAll('.qa-item');
+    if (!qaItems.length) return; // if DSA overview not loaded
+
+    const searchInput = document.getElementById('dsaTheorySearch');
+    const progressText = document.getElementById('dsaTheoryProgress');
+    const STORAGE_KEY = 'dsa_theory_completed_ids';
+
+    // Load completed IDs from localStorage
+    let completedIds = [];
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) completedIds = JSON.parse(stored);
+    } catch (e) {
+        completedIds = [];
+    }
+    const completedSet = new Set(completedIds);
+
+    function updateProgress() {
+        const total = qaItems.length;
+        const done = completedSet.size;
+        if (progressText) {
+            progressText.textContent = `${done} / ${total} completed`;
+        }
+    }
+
+    // Set up each Q&A item
+    qaItems.forEach(item => {
+        const id = item.getAttribute('data-id');
+        const questionBtn = item.querySelector('.qa-question');
+        const checkbox = item.querySelector('.qa-done-checkbox');
+
+        // Restore "done" state from localStorage
+        if (completedSet.has(id)) {
+            checkbox.checked = true;
+            item.classList.add('completed');
+        }
+
+        // Accordion: open/close answer
+        if (questionBtn) {
+            questionBtn.addEventListener('click', () => {
+                const isOpen = item.classList.contains('open');
+                // Optional: close others
+                qaItems.forEach(i => i.classList.remove('open'));
+                if (!isOpen) {
+                    item.classList.add('open');
+                }
+            });
+        }
+
+        // Mark as done
+        if (checkbox) {
+            checkbox.addEventListener('change', () => {
+                if (checkbox.checked) {
+                    completedSet.add(id);
+                    item.classList.add('completed');
+                } else {
+                    completedSet.delete(id);
+                    item.classList.remove('completed');
+                }
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(completedSet)));
+                updateProgress();
+            });
+        }
+    });
+
+    updateProgress();
+
+    // Search filter
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            const query = searchInput.value.toLowerCase().trim();
+
+            qaItems.forEach(item => {
+                const text =
+                    item.querySelector('.qa-q-text').textContent.toLowerCase() +
+                    ' ' +
+                    item.querySelector('.qa-answer').textContent.toLowerCase();
+
+                if (!query || text.includes(query)) {
+                    item.classList.remove('hidden');
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+        });
+    }
+})();
+
+
+// OS & DBMS + DSA Q&A accordion
+document.querySelectorAll('.qa-question').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const item = btn.closest('.qa-item');
+        if (!item) return;
+        item.classList.toggle('active');
+    });
+});
+function toggleHrContent(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = (el.style.display === 'block') ? 'none' : 'block';
+}
+
+
+</script>
+
+
+</body>
+</html>
