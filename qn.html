@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HR Interview Preparation Guide</title>
+<style>
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        min-height: 100vh;
+    }
+    /* Sidebar */
+    .sidebar {
+        width: 250px;
+        background-color: rgba(255,255,255,0.95);
+        color: #333;
+        padding-top: 20px;
+        box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+        position: fixed;
+        height: 100%;
+        overflow-y: auto;
+    }
+    .sidebar h2 {
+        text-align: center;
+        color: #667eea;
+        margin-bottom: 30px;
+    }
+    .sidebar a {
+        display: block;
+        padding: 12px 25px;
+        color: #333;
+        text-decoration: none;
+        font-weight: 500;
+        border-left: 4px solid transparent;
+        transition: all 0.3s ease;
+    }
+    .sidebar a:hover {
+        background: #f5f7fa;
+        border-left: 4px solid #667eea;
+    }
+
+    /* Main content */
+    .main-content {
+        margin-left: 250px;
+        flex-grow: 1;
+        background-color: #f7f9fc;
+        padding: 30px;
+    }
+
+    header {
+        background-color: rgba(255, 255, 255, 0.9);
+        padding: 25px;
+        text-align: center;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .level-title {
+        margin: 30px 0 15px;
+        font-size: 1.4em;
+        color: #4a4a4a;
+        border-left: 6px solid #667eea;
+        padding-left: 10px;
+    }
+
+    .container {
+        background-color: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+    }
+
+    .question {
+        margin-bottom: 25px;
+        padding: 20px;
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        transition: transform 0.2s;
+    }
+    .question:hover {
+        transform: translateY(-5px);
+    }
+    .question h3 {
+        margin-top: 0;
+        color: #667eea;
+        font-size: 1.1em;
+    }
+    button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 10px 16px;
+        border-radius: 25px;
+        margin-top: 10px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+    button:hover {
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    }
+
+    .toggle-content {
+        display: none;
+        animation: fadeIn 0.4s;
+    }
+
+    .answer, .explanation, .tips {
+        margin-top: 15px;
+        padding: 15px;
+        border-radius: 8px;
+    }
+    .answer { background-color: #fffacd; border-left: 5px solid #ffd700; }
+    .explanation { background-color: #e0f7fa; border-left: 5px solid #00bcd4; }
+    .tips { background-color: #fce4ec; border-left: 5px solid #e91e63; }
+
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+    <h2>Prep Guide</h2>
+    <a href="#easy">🟢 Easy Questions</a>
+    <a href="#medium">🟡 Medium Questions</a>
+    <a href="#hard">🔴 Hard Questions</a>
+</div>
+
+<!-- Main Content -->
+<div class="main-content">
+    <header>
+        <h1>💼 Human Resource (HR) Interview Preparation</h1>
+        <p>Master common HR questions with model answers, explanations, and practical tips.</p>
+    </header>
+
+    <div class="container">
+
+        <!-- EASY QUESTIONS -->
+        <h2 class="level-title" id="easy">🟢 Easy Level</h2>
+
+        <div class="question">
+            <h3>1. Tell me about yourself.</h3>
+            <button onclick="toggleContent('q1')">Reveal Details</button>
+            <div id="q1" class="toggle-content">
+                <div class="answer"><strong>Sample Answer:</strong> I’m a Computer Science student passionate about software development. Over the past two years, I’ve built projects in web and Java programming that strengthened my problem-solving and teamwork skills. I’m now looking for an opportunity to apply my knowledge in a dynamic environment.</div>
+                <div class="explanation"><strong>Explanation:</strong> Begin with your background, mention key skills and projects, then link them to your career goals.</div>
+                <div class="tips"><strong>Tip:</strong> Keep it structured: Present → Past → Future.</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>2. What are your strengths?</h3>
+            <button onclick="toggleContent('q2')">Reveal Details</button>
+            <div id="q2" class="toggle-content">
+                <div class="answer"><strong>Sample Answer:</strong> My strengths are adaptability and perseverance. I quickly adjust to new technologies and environments, and I always ensure to complete tasks efficiently under pressure.</div>
+                <div class="explanation"><strong>Explanation:</strong> Choose strengths relevant to the job like teamwork, communication, or time management.</div>
+                <div class="tips"><strong>Tip:</strong> Back your strengths with short examples or results.</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>3. What are your weaknesses?</h3>
+            <button onclick="toggleContent('q3')">Reveal Details</button>
+            <div id="q3" class="toggle-content">
+                <div class="answer"><strong>Sample Answer:</strong> I sometimes take more time than required to ensure my code is perfect. However, I’m learning to balance quality with efficiency through better time management.</div>
+                <div class="explanation"><strong>Explanation:</strong> Show self-awareness and improvement mindset.</div>
+                <div class="tips"><strong>Tip:</strong> Never mention a weakness that directly harms job performance.</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>4. Why should we hire you?</h3>
+            <button onclick="toggleContent('q4')">Reveal Details</button>
+            <div id="q4" class="toggle-content">
+                <div class="answer"><strong>Sample Answer:</strong> I bring a strong foundation in computer science, proven project experience, and the ability to work in teams. I’m eager to learn and contribute to your company’s projects from day one.</div>
+                <div class="explanation"><strong>Explanation:</strong> Focus on what makes you unique and how you add value.</div>
+                <div class="tips"><strong>Tip:</strong> Use specific achievements or skills that match the job role.</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>5. Where do you see yourself in 5 years?</h3>
+            <button onclick="toggleContent('q5')">Reveal Details</button>
+            <div id="q5" class="toggle-content">
+                <div class="answer"><strong>Sample Answer:</strong> I aim to become a skilled software engineer leading projects and mentoring new developers while continuously learning emerging technologies.</div>
+                <div class="explanation"><strong>Explanation:</strong> Align your goals with the company’s growth path.</div>
+                <div class="tips"><strong>Tip:</strong> Avoid vague or over-ambitious answers.</div>
+            </div>
+        </div>
+
+        <!-- MEDIUM QUESTIONS -->
+        <h2 class="level-title" id="medium">🟡 Medium Level</h2>
+
+        <div class="question">
+            <h3>6. Describe a time when you worked in a team.</h3>
+            <button onclick="toggleContent('q6')">Reveal Details</button>
+            <div id="q6" class="toggle-content">
+                <div class="answer"><strong>Sample Answer:</strong> During a group project, we built a full-stack web app. I handled the backend API and ensured seamless integration. Despite different opinions, we collaborated effectively through weekly check-ins and achieved our deadline.</div>
+                <div class="explanation"><strong>Explanation:</strong> Highlight teamwork, communication, and conflict resolution.</div>
+                <div class="tips"><strong>Tip:</strong> Use the STAR method — Situation, Task, Action, Result.</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>7. How do you handle stress or pressure?</h3>
+            <button onclick="toggleContent('q7')">Reveal Details</button>
+            <div id="q7" class="toggle-content">
+                <div class="answer"><strong>Sample Answer:</strong> I stay calm by breaking tasks into smaller goals and prioritizing. I also take short breaks to stay focused and maintain productivity.</div>
+                <div class="explanation"><strong>Explanation:</strong> Show maturity in handling pressure and problem-solving.</div>
+                <div class="tips"><strong>Tip:</strong> Share a brief example of a stressful situation you handled successfully.</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>8. What motivates you at work?</h3>
+            <button onclick="toggleContent('q8')">Reveal Details</button>
+            <div id="q8" class="toggle-content">
+                <div class="answer"><strong>Sample Answer:</strong> I’m motivated by solving complex challenges and seeing my work create real-world impact. The opportunity to grow and learn new skills also keeps me driven.</div>
+                <div class="explanation"><strong>Explanation:</strong> Align motivation with learning, teamwork, or achievement.</div>
+                <div class="tips"><strong>Tip:</strong> Avoid mentioning salary as your only motivator.</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>9. How do you prioritize your tasks?</h3>
+            <button onclick="toggleContent('q9')">Reveal Details</button>
+            <div id="q9" class="toggle-content">
+                <div class="answer"><strong>Sample Answer:</strong> I list my tasks by urgency and importance using a simple planner. I focus on high-priority tasks first and regularly review progress.</div>
+                <div class="explanation"><strong>Explanation:</strong> Demonstrates organization and time management skills.</div>
+                <div class="tips"><strong>Tip:</strong> Mention any productivity tools you use.</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>10. How do you handle failure?</h3>
+            <button onclick="toggleContent('q10')">Reveal Details</button>
+            <div id="q10" class="toggle-content">
+                <div class="answer"><strong>Sample Answer:</strong> I view failure as an opportunity to learn. When a project of mine once missed its target, I analyzed what went wrong, adjusted my approach, and succeeded in the next attempt.</div>
+                <div class="explanation"><strong>Explanation:</strong> Emphasize resilience and learning from mistakes.</div>
+                <div class="tips"><strong>Tip:</strong> Avoid blaming others or sounding negative.</div>
+            </div>
+        </div>
+
+        <!-- HARD QUESTIONS -->
+        <h2 class="level-title" id="hard">🔴 Hard Level</h2>
+
+        <div class="question">
+            <h3>11. Tell me about a conflict you faced and how you resolved it.</h3>
+            <button onclick="toggleContent('q11')">Reveal Details</button>
+            <div id="q11" class="toggle-content">
+                <div class="answer"><strong>Sample Answer:</strong> In a team project, two members disagreed about design choices. I facilitated a short meeting to gather everyone’s input, compared options objectively, and helped us decide based on project goals. This built better collaboration.</div>
+                <div class="explanation"><strong>Explanation:</strong> Focus on communication, leadership, and resolution.</div>
+                <div class="tips"><strong>Tip:</strong> Avoid negative tone; focus on the positive outcome.</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>12. What if you disagree with your manager’s decision?</h3>
+            <button onclick="toggleContent('q12')">Reveal Details</button>
+            <div id="q12" class="toggle-content">
+                <div class="answer"><strong>Sample Answer:</strong> I’d first try to understand their reasoning. If I still see potential risks, I’d respectfully share my perspective and suggest alternatives — but ultimately, I’ll support the final decision professionally.</div>
+                <div class="explanation"><strong>Explanation:</strong> Demonstrates respect and professional maturity.</div>
+                <div class="tips"><strong>Tip:</strong> Avoid sounding argumentative or defensive.</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>13. Describe a time you took initiative.</h3>
+            <button onclick="toggleContent('q13')">Reveal Details</button>
+            <div id="q13" class="toggle-content">
+                <div class="answer"><strong>Sample Answer:</strong> During my internship, I noticed our testing process was manual and time-consuming. I suggested using automation tools and created a simple script that reduced time by 30%.</div>
+                <div class="explanation"><strong>Explanation:</strong> Highlight leadership, innovation, and problem-solving.</div>
+                <div class="tips"><strong>Tip:</strong> Pick an example with measurable results.</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>14. What’s your greatest achievement?</h3>
+            <button onclick="toggleContent('q14')">Reveal Details</button>
+            <div id="q14" class="toggle-content">
+                <div class="answer"><strong>Sample Answer:</strong> Completing a full-stack project within two weeks while balancing academics and presenting it at a college event was my proudest achievement. It taught me discipline and effective time management.</div>
+                <div class="explanation"><strong>Explanation:</strong> Choose something that shows perseverance and skill.</div>
+                <div class="tips"><strong>Tip:</strong> Quantify your results whenever possible.</div>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>15. How do you define success?</h3>
+            <button onclick="toggleContent('q15')">Reveal Details</button>
+            <div id="q15" class="toggle-content">
+                <div class="answer"><strong>Sample Answer:</strong> Success to me is achieving my goals while learning continuously and contributing positively to my team or organization.</div>
+                <div class="explanation"><strong>Explanation:</strong> Align your definition with growth and collaboration.</div>
+                <div class="tips"><strong>Tip:</strong> Avoid overly personal or materialistic responses.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleContent(id) {
+        const content = document.getElementById(id);
+        content.style.display = content.style.display === 'block' ? 'none' : 'block';
+    }
+</script>
+</body>
+</html>

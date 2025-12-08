@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InterviewPrep Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/lucide-icons/dist/lucide.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Poppins", sans-serif;
+      transition: all 0.3s ease;
+    }
+
+    body {
+      display: flex;
+      min-height: 100vh;
+      background: #f4f6fa;
+      color: #222;
+    }
+
+    /* === Sidebar === */
+    .sidebar {
+      width: 250px;
+      background: linear-gradient(135deg, #0052d4, #4364f7, #6fb1fc);
+      color: #fff;
+      position: fixed;
+      height: 100%;
+      padding-top: 1rem;
+      transition: width 0.3s ease-in-out;
+      overflow: hidden;
+      z-index: 100;
+    }
+
+    .sidebar.minimized {
+      width: 70px;
+    }
+
+    .sidebar h2 {
+      text-align: center;
+      font-size: 1.6rem;
+      margin-bottom: 2rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+
+    .sidebar nav {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .sidebar nav a {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 12px 20px;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 10px;
+      margin: 0 10px;
+      transition: background 0.3s ease;
+    }
+
+    .sidebar nav a:hover,
+    .sidebar nav a.active {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .sidebar nav a i {
+      width: 20px;
+      text-align: center;
+    }
+
+    .sidebar.minimized nav a span {
+      display: none;
+    }
+
+    /* === Top Bar === */
+    .top-bar {
+      position: fixed;
+      top: 0;
+      left: 250px;
+      right: 0;
+      height: 60px;
+      background: #fff;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px;
+      transition: left 0.3s;
+    }
+
+    .sidebar.minimized ~ .top-bar {
+      left: 70px;
+    }
+
+    .toggle-btn {
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: #0052d4;
+      background: #eaf2ff;
+      padding: 8px 12px;
+      border-radius: 8px;
+    }
+
+    /* === Main Content === */
+    .main-content {
+      margin-left: 250px;
+      padding: 90px 30px;
+      flex: 1;
+      transition: margin-left 0.3s;
+    }
+
+    .sidebar.minimized ~ .main-content {
+      margin-left: 70px;
+    }
+
+    .page {
+      display: none;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.3s ease;
+    }
+
+    .page.active {
+      display: block;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .page h1 {
+      color: #0052d4;
+      font-size: 1.8rem;
+      margin-bottom: 10px;
+    }
+
+    /* === Dark Mode === */
+    body.dark {
+      background: #121212;
+      color: #f0f0f0;
+    }
+
+    body.dark .top-bar {
+      background: #1e1e1e;
+    }
+
+    body.dark .toggle-btn {
+      background: #232323;
+      color: #6fb1fc;
+    }
+
+    /* === Mobile Responsive === */
+    @media (max-width: 768px) {
+      .sidebar {
+        left: -250px;
+      }
+      .sidebar.active {
+        left: 0;
+      }
+      .top-bar {
+        left: 0;
+      }
+      .main-content {
+        margin-left: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <h2>InterviewPrep</h2>
+    <nav>
+      <a href="#" class="active" data-page="dashboard"><i data-lucide="home"></i><span>Dashboard</span></a>
+      <a href="#" data-page="practice"><i data-lucide="code"></i><span>Practice</span></a>
+      <a href="#" data-page="mock"><i data-lucide="user-tie"></i><span>Mock Interviews</span></a>
+      <a href="#" data-page="resources"><i data-lucide="book-open"></i><span>Resources</span></a>
+      <a href="#" data-page="progress"><i data-lucide="bar-chart"></i><span>Progress</span></a>
+      <a href="#" data-page="profile"><i data-lucide="user"></i><span>Profile</span></a>
+    </nav>
+  </div>
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <div class="toggle-btn" id="sidebarToggle"><i data-lucide="menu"></i></div>
+    <div class="theme-toggle" id="themeToggle"><i data-lucide="moon"></i></div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <div class="page active" id="dashboard">
+      <h1>Welcome to InterviewPrep</h1>
+      <p>Get started with AI-based practice questions and real interview simulations.</p>
+    </div>
+    <div class="page" id="practice">
+      <h1>Practice Zone</h1>
+      <p>Sharpen your coding and aptitude skills with daily challenges.</p>
+    </div>
+    <div class="page" id="mock">
+      <h1>Mock Interviews</h1>
+      <p>Experience live interview simulations powered by AI feedback.</p>
+    </div>
+    <div class="page" id="resources">
+      <h1>Resources</h1>
+      <p>Explore curated guides, articles, and videos to boost your preparation.</p>
+    </div>
+    <div class="page" id="progress">
+      <h1>Your Progress</h1>
+      <p>Track your performance, consistency, and growth in one place.</p>
+    </div>
+    <div class="page" id="profile">
+      <h1>Profile</h1>
+      <p>Manage your account and preferences here.</p>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide-icons"></script>
+  <script>
+    lucide.createIcons();
+
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const themeToggle = document.getElementById('themeToggle');
+    const pages = document.querySelectorAll('.page');
+    const links = document.querySelectorAll('.sidebar nav a');
+
+    // Sidebar Toggle
+    sidebarToggle.addEventListener('click', () => {
+      sidebar.classList.toggle('minimized');
+      sidebarToggle.innerHTML = sidebar.classList.contains('minimized')
+        ? '<i data-lucide="chevron-right"></i>'
+        : '<i data-lucide="menu"></i>';
+      lucide.createIcons();
+    });
+
+    // Page Navigation
+    links.forEach(link => {
+      link.addEventListener('click', e => {
+        e.preventDefault();
+        links.forEach(l => l.classList.remove('active'));
+        link.classList.add('active');
+        pages.forEach(p => p.classList.remove('active'));
+        document.getElementById(link.dataset.page).classList.add('active');
+      });
+    });
+
+    // Theme Toggle
+    themeToggle.addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+      themeToggle.innerHTML = document.body.classList.contains('dark')
+        ? '<i data-lucide="sun"></i>'
+        : '<i data-lucide="moon"></i>';
+      lucide.createIcons();
+    });
+  </script>
+
+</body>
+</html>

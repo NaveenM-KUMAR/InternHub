@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>InternView – Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-body: #f3f4f6;
+      --bg-card: #ffffff;
+      --bg-hero: linear-gradient(135deg, #e0f2fe, #fef9c3);
+      --primary: #2563eb;
+      --primary-soft: rgba(37, 99, 235, 0.1);
+      --accent: #22c55e;
+      --text-main: #111827;
+      --text-muted: #6b7280;
+      --border-subtle: #e5e7eb;
+      --shadow-soft: 0 15px 35px rgba(15, 23, 42, 0.08);
+      --radius-card: 16px;
+      --radius-pill: 999px;
+      --nav-height: 64px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Poppins", sans-serif;
+      background: var(--bg-body);
+      color: var(--text-main);
+    }
+
+    a {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    /* Top Nav */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      backdrop-filter: blur(14px);
+      background: rgba(243, 244, 246, 0.92);
+      border-bottom: 1px solid rgba(209, 213, 219, 0.8);
+    }
+
+    .nav {
+      max-width: 1200px;
+      margin: 0 auto;
+      height: var(--nav-height);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+    }
+
+    .nav-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 12px;
+      background: radial-gradient(circle at 20% 10%, #60a5fa, #2563eb);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #f9fafb;
+      font-size: 16px;
+      font-weight: 700;
+      box-shadow: 0 8px 18px rgba(37, 99, 235, 0.45);
+    }
+
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.1;
+    }
+
+    .logo-text span:first-child {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .logo-text span:last-child {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      font-size: 14px;
+    }
+
+    .nav-link {
+      position: relative;
+      padding: 4px 0;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: color 0.15s ease;
+    }
+
+    .nav-link.active {
+      color: var(--primary);
+      font-weight: 500;
+    }
+
+    .nav-link::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      bottom: -4px;
+      width: 0;
+      height: 2px;
+      border-radius: 999px;
+      background: var(--primary);
+      transition: width 0.18s ease;
+    }
+
+    .nav-link.active::after,
+    .nav-link:hover::after {
+      width: 100%;
+    }
+
+    .nav-link:hover {
+      color: #1d4ed8;
+    }
+
+    .nav-mobile-toggle {
+      display: none;
+      border: none;
+      background: transparent;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .nav-mobile-toggle span {
+      display: block;
+      width: 18px;
+      height: 2px;
+      background: #111827;
+      border-radius: 999px;
+      position: relative;
+    }
+
+    .nav-mobile-toggle span::before,
+    .nav-mobile-toggle span::after {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 2px;
+      border-radius: 999px;
+      background: #111827;
+      left: 0;
+    }
+
+    .nav-mobile-toggle span::before {
+      top: -5px;
+    }
+
+    .nav-mobile-toggle span::after {
+      top: 5px;
+    }
+
+    /* Layout container */
+    main {
+      max-width: 1200px;
+      margin: 20px auto 32px;
+      padding: 0 16px 16px;
+    }
+
+    .page-header {
+      margin-bottom: 14px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .page-header span {
+      color: var(--primary);
+      font-weight: 500;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--bg-card);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-soft);
+      border: 1px solid rgba(229, 231, 235, 0.8);
+    }
+
+    /* Section 1: Hero */
+    .hero-card {
+      padding: 20px 22px;
+      background-image: var(--bg-hero);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 22px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-content {
+      max-width: 640px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-heading {
+      font-size: 26px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .hero-goal {
+      font-size: 14px;
+      color: #4b5563;
+      margin-bottom: 6px;
+    }
+
+    .hero-tagline {
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .hero-meta {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: #4b5563;
+      flex-wrap: wrap;
+    }
+
+    .meta-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(37, 99, 235, 0.08);
+      color: #1e3a8a;
+      font-weight: 500;
+      font-size: 11px;
+    }
+
+    .meta-pill-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.35);
+    }
+
+    .hero-side {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+      min-width: 180px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .btn-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: var(--radius-pill);
+      border: 1px solid rgba(37, 99, 235, 0.5);
+      background: rgba(255, 255, 255, 0.85);
+      color: #1d4ed8;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: box-shadow 0.18s ease, transform 0.12s ease, background 0.18s ease;
+    }
+
+    .btn-pill:hover {
+      transform: translateY(-1px);
+      background: #eff6ff;
+      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+    }
+
+    .btn-pill span.icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(37, 99, 235, 0.5);
+      font-size: 12px;
+    }
+
+    .hero-progress-chip {
+      font-size: 11px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: rgba(34, 197, 94, 0.14);
+      color: #166534;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hero-decoration {
+      position: absolute;
+      right: -40px;
+      top: -40px;
+      width: 200px;
+      height: 200px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 30%, rgba(59,130,246,0.5), transparent 60%);
+      opacity: 0.4;
+    }
+
+    /* Section 2: Stats Grid */
+    .stats-grid {
+      margin-bottom: 22px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .stat-card {
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-icon {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .stat-value {
+      font-size: 22px;
+      font-weight: 600;
+    }
+
+    .stat-caption {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .stat-card::after {
+      content: "";
+      position: absolute;
+      inset: auto auto -24px -24px;
+      width: 60px;
+      height: 60px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(37, 99, 235, 0.12), transparent 70%);
+    }
+
+    /* Section 3 & 4: Recent + Upcoming */
+    .content-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1.6fr);
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+
+    .card-header {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .card-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .card-body {
+      padding: 10px 16px 14px;
+    }
+
+    /* Recent Activity list */
+    .activity-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 260px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .activity-item {
+      display: flex;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      transition: background 0.12s ease, transform 0.08s ease;
+      cursor: default;
+    }
+
+    .activity-item:hover {
+      background: #f3f4ff;
+      transform: translateY(-1px);
+    }
+
+    .activity-icon {
+      flex-shrink: 0;
+      width: 30px;
+      height: 30px;
+      border-radius: 12px;
+      background: #eff6ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+      font-size: 16px;
+    }
+
+    .activity-main {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .activity-title {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .activity-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Upcoming & Suggestions */
+    .upcoming-block {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .upcoming-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .upcoming-item {
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: #eff6ff;
+      border: 1px solid rgba(37, 99, 235, 0.18);
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .upcoming-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      margin-top: 4px;
+      background: var(--primary);
+    }
+
+    .upcoming-text-title {
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+
+    .upcoming-text-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .suggested-item {
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: #ecfdf5;
+      border: 1px solid rgba(22, 163, 74, 0.2);
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .suggested-dot {
+      width: 8px;
+      height: 8px;
+      margin-top: 4px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+
+    .suggested-text-title {
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+
+    .suggested-text-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .actions-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .btn-primary {
+      flex: 1;
+      min-width: 140px;
+      border-radius: var(--radius-pill);
+      border: none;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 10px 22px rgba(37, 99, 235, 0.35);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.15s ease;
+    }
+
+    .btn-primary:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px rgba(37, 99, 235, 0.4);
+    }
+
+    .btn-primary:active {
+      transform: translateY(1px);
+      box-shadow: 0 7px 16px rgba(37, 99, 235, 0.35);
+    }
+
+    .btn-secondary {
+      flex: 1;
+      min-width: 160px;
+      border-radius: var(--radius-pill);
+      border: 1px solid rgba(37, 99, 235, 0.4);
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      background: #ffffff;
+      color: var(--primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+    }
+
+    .btn-secondary:hover {
+      background: #eff6ff;
+      transform: translateY(-1px);
+      box-shadow: 0 10px 20px rgba(37, 99, 235, 0.18);
+    }
+
+    .btn-secondary:active {
+      transform: translateY(1px);
+      box-shadow: 0 6px 14px rgba(37, 99, 235, 0.18);
+    }
+
+    .action-caption {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    /* Section 5: Progress Chart */
+    .progress-card {
+      padding-bottom: 12px;
+    }
+
+    .chart-container {
+      padding: 12px 18px 14px;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .chart-legend {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      font-size: 11px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .legend-color {
+      width: 10px;
+      height: 10px;
+      border-radius: 4px;
+      background: var(--primary);
+    }
+
+    .chart {
+      position: relative;
+      border-radius: 14px;
+      border: 1px solid #e5e7eb;
+      background: #ffffff;
+      padding: 16px 12px 14px;
+      overflow: hidden;
+    }
+
+    .chart-grid {
+      position: absolute;
+      inset: 12px 12px 26px 30px;
+      pointer-events: none;
+    }
+
+    .chart-grid-horizontal {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .chart-grid-line {
+      width: 100%;
+      height: 1px;
+      border-top: 1px dashed #e5e7eb;
+    }
+
+    .chart-inner {
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 8px 22px;
+      height: 170px;
+    }
+
+    .chart-bar-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .chart-bar {
+      width: 100%;
+      max-width: 24px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #60a5fa, #2563eb);
+      box-shadow: 0 8px 18px rgba(37, 99, 235, 0.4);
+      height: 0;
+      transition: height 0.5s ease-out;
+    }
+
+    .chart-day-label {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .chart-y-axis-label {
+      position: absolute;
+      left: 18px;
+      top: 10px;
+      font-size: 10px;
+      color: var(--text-muted);
+      transform: rotate(-90deg);
+      transform-origin: left top;
+    }
+
+    /* Scrollbar styling for activity list */
+    .activity-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .activity-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .activity-list::-webkit-scrollbar-thumb {
+      background: #d1d5db;
+      border-radius: 999px;
+    }
+
+    /* Responsive */
+    @media (max-width: 960px) {
+      .content-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .hero-card {
+        align-items: flex-start;
+      }
+      .hero-side {
+        align-items: flex-start;
+      }
+    }
+
+    @media (max-width: 800px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 600px) {
+      .stats-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .hero-heading {
+        font-size: 22px;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .nav-links {
+        display: none;
+      }
+      .nav-mobile-toggle {
+        display: inline-flex;
+      }
+      .nav-links.mobile-open {
+        position: absolute;
+        top: var(--nav-height);
+        right: 0;
+        left: 0;
+        background: rgba(243, 244, 246, 0.98);
+        padding: 10px 16px 14px;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: flex-end;
+        gap: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <nav class="nav" aria-label="Primary">
+    <div class="nav-left">
+      <div class="logo-mark">IV</div>
+      <div class="logo-text">
+        <span>InternHub.ai</span>
+        
+      </div>
+    </div>
+    <button class="nav-mobile-toggle" aria-label="Toggle navigation">
+      <span></span>
+    </button>
+    
+  </nav>
+</header>
+
+<main>
+  <div class="page-header">
+    Overview · <span>Home</span>
+  </div>
+
+  <!-- Section 1: Welcome + Goal (Hero) -->
+  <section class="hero-card card" aria-label="Welcome and goals">
+    <div class="hero-decoration"></div>
+    <div class="hero-content">
+      <div class="hero-heading">
+        Hi, Naveen. 👋
+      </div>
+      <p class="hero-goal">
+        Your goal: <strong>Crack Software Developer role by July 2026.</strong>
+      </p>
+      <p class="hero-tagline">
+        Keep up the consistency. Every practice session moves you closer to your offer letter.
+      </p>
+      <div class="hero-meta">
+        <div class="meta-pill">
+          <span class="meta-pill-dot"></span>
+          Active this week · 3 sessions
+        </div>
+        <span style="font-size:12px; color:#4b5563;">
+          Focus today: <strong>DSA + Behavioral</strong>
+        </span>
+      </div>
+    </div>
+    <div class="hero-side">
+      <a href="profile.html" class="btn-pill">
+        <span class="icon">✏️</span>
+        <span>Update Goal</span>
+      </a>
+      <div class="hero-progress-chip">
+        🔁 You have a 3-day streak. Nice momentum.
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 2: Stats Cards -->
+  <section class="stats-grid" aria-label="Key statistics">
+    <article class="stat-card card">
+      <div class="stat-label">
+        <div class="stat-icon">🎯</div>
+        <span>Total mock interviews completed</span>
+      </div>
+      <div class="stat-value">12</div>
+      <div class="stat-caption">Last one: <strong>Java Backend</strong> (2 days ago)</div>
+    </article>
+
+    <article class="stat-card card">
+      <div class="stat-label">
+        <div class="stat-icon">🧠</div>
+        <span>Questions practiced this week</span>
+      </div>
+      <div class="stat-value">85</div>
+      <div class="stat-caption">Goal: <strong>100 questions/week</strong></div>
+    </article>
+
+    <article class="stat-card card">
+      <div class="stat-label">
+        <div class="stat-icon">⭐</div>
+        <span>Average mock score</span>
+      </div>
+      <div class="stat-value">7.8 / 10</div>
+      <div class="stat-caption">Last 5 mocks · improving trend 🔼</div>
+    </article>
+
+    <article class="stat-card card">
+      <div class="stat-label">
+        <div class="stat-icon">🔥</div>
+        <span>Streak</span>
+      </div>
+      <div class="stat-value">3 days</div>
+      <div class="stat-caption">You practiced <strong>3 days in a row</strong>. Keep it going.</div>
+    </article>
+  </section>
+
+  <!-- Section 3 & 4: Recent Activity + Upcoming & Suggestions -->
+  <section class="content-grid" aria-label="Activity and suggestions">
+    <!-- Recent Activity -->
+    <article class="card" aria-label="Recent activity">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Recent Activity</div>
+          <div class="card-subtitle">Your latest practice and mock interview sessions</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul class="activity-list">
+          <li class="activity-item">
+            <div class="activity-icon">💬</div>
+            <div class="activity-main">
+              <div class="activity-title">HR Questions</div>
+              <div class="activity-meta">15 questions · Completed today · Focus: “Tell me about yourself”, “Strengths & Weaknesses”</div>
+            </div>
+          </li>
+          <li class="activity-item">
+            <div class="activity-icon">💻</div>
+            <div class="activity-main">
+              <div class="activity-title">Mock Interview: Java Developer</div>
+              <div class="activity-meta">Score: 8.2 / 10 · Yesterday · Feedback: Improve on time complexity explanation</div>
+            </div>
+          </li>
+          <li class="activity-item">
+            <div class="activity-icon">🧩</div>
+            <div class="activity-main">
+              <div class="activity-title">Aptitude: Arrays</div>
+              <div class="activity-meta">10 questions · 2 days ago · Accuracy: 70%</div>
+            </div>
+          </li>
+          <li class="activity-item">
+            <div class="activity-icon">🔐</div>
+            <div class="activity-main">
+              <div class="activity-title">System Design Basics</div>
+              <div class="activity-meta">Watched 1 module · 3 days ago · Topic: Scaling login service</div>
+            </div>
+          </li>
+          <li class="activity-item">
+            <div class="activity-icon">📚</div>
+            <div class="activity-main">
+              <div class="activity-title">DSA: Linked Lists</div>
+              <div class="activity-meta">12 questions · 4 days ago · Most missed: “Cycle detection”</div>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </article>
+
+    <!-- Upcoming & Suggestions -->
+    <article class="card" aria-label="Upcoming & suggested actions">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Upcoming & Suggestions</div>
+          <div class="card-subtitle">Plan your next focused session</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="upcoming-block">
+          <div>
+            <div class="upcoming-label">Upcoming</div>
+            <div class="upcoming-item">
+              <div class="upcoming-dot"></div>
+              <div>
+                <div class="upcoming-text-title">
+                  Next mock interview: <strong>System Design</strong>
+                </div>
+                <div class="upcoming-text-meta">
+                  Scheduled: <strong>07:00 PM today</strong> · Format: 45 min live-style interview
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="upcoming-label" style="margin-top:4px;">Suggested</div>
+            <div class="suggested-item">
+              <div class="suggested-dot"></div>
+              <div>
+                <div class="suggested-text-title">
+                  Suggested: 10 DSA questions on <strong>Arrays</strong>
+                </div>
+                <div class="suggested-text-meta">
+                  Based on your recent mocks, arrays & edge cases are a weaker area. Recommended difficulty: Easy ➝ Medium.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="actions-row">
+            <button class="btn-primary" type="button">
+              ▶ Start Practice
+            </button>
+            <button class="btn-secondary" type="button">
+              🎙 Start Mock Interview
+            </button>
+          </div>
+          <div class="action-caption">
+            “Start Practice” picks a tailored set of DSA + aptitude questions.  
+            “Start Mock Interview” simulates a timed, real interview with scoring.
+          </div>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- Section 5: Progress Chart -->
+  <section class="card progress-card" aria-label="Weekly progress">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Your Weekly Progress</div>
+        <div class="card-subtitle">Questions attempted per day (last 7 days)</div>
+      </div>
+      <div class="card-subtitle">This week vs. target</div>
+    </div>
+    <div class="chart-container">
+      <div class="chart-header">
+        <span>Last 7 days</span>
+        <div class="chart-legend">
+          <div class="legend-item">
+            <span class="legend-color"></span>
+            <span>Questions attempted</span>
+          </div>
+        </div>
+      </div>
+      <div class="chart">
+        <div class="chart-y-axis-label">Questions attempted</div>
+        <div class="chart-grid">
+          <div class="chart-grid-horizontal">
+            <div class="chart-grid-line"></div>
+            <div class="chart-grid-line"></div>
+            <div class="chart-grid-line"></div>
+            <div class="chart-grid-line"></div>
+          </div>
+        </div>
+        <div class="chart-inner" aria-hidden="true">
+          <!-- Bars will be updated via JS -->
+          <div class="chart-bar-wrapper">
+            <div class="chart-bar" data-day="Mon"></div>
+            <div class="chart-day-label">Mon</div>
+          </div>
+          <div class="chart-bar-wrapper">
+            <div class="chart-bar" data-day="Tue"></div>
+            <div class="chart-day-label">Tue</div>
+          </div>
+          <div class="chart-bar-wrapper">
+            <div class="chart-bar" data-day="Wed"></div>
+            <div class="chart-day-label">Wed</div>
+          </div>
+          <div class="chart-bar-wrapper">
+            <div class="chart-bar" data-day="Thu"></div>
+            <div class="chart-day-label">Thu</div>
+          </div>
+          <div class="chart-bar-wrapper">
+            <div class="chart-bar" data-day="Fri"></div>
+            <div class="chart-day-label">Fri</div>
+          </div>
+          <div class="chart-bar-wrapper">
+            <div class="chart-bar" data-day="Sat"></div>
+            <div class="chart-day-label">Sat</div>
+          </div>
+          <div class="chart-bar-wrapper">
+            <div class="chart-bar" data-day="Sun"></div>
+            <div class="chart-day-label">Sun</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  // Mobile nav toggle
+  const mobileToggle = document.querySelector(".nav-mobile-toggle");
+  const navLinks = document.querySelector(".nav-links");
+
+  mobileToggle.addEventListener("click", () => {
+    navLinks.classList.toggle("mobile-open");
+  });
+
+  // Simple dummy data for questions attempted per day
+  const questionsPerDay = {
+    Mon: 12,
+    Tue: 18,
+    Wed: 10,
+    Thu: 20,
+    Fri: 15,
+    Sat: 6,
+    Sun: 4
+  };
+
+  // Set bar heights based on data
+  const bars = document.querySelectorAll(".chart-bar");
+  const values = Object.values(questionsPerDay);
+  const max = Math.max(...values) || 1;
+
+  bars.forEach(bar => {
+    const day = bar.getAttribute("data-day");
+    const value = questionsPerDay[day] || 0;
+    const heightPercent = (value / max) * 100;
+    // small delay for smooth animation
+    setTimeout(() => {
+      bar.style.height = `${Math.max(10, heightPercent)}%`;
+    }, 200);
+    bar.title = `${day}: ${value} questions`;
+  });
+
+  // Optional: console log for future debugging
+  console.log("Weekly questions data:", questionsPerDay);
+</script>
+</body>
+</html>

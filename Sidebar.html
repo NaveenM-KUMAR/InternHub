@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interview Prep App</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #f5f5f5;
+      color: #333;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    body.dark { background-color: #121212; color: #e0e0e0; }
+
+    .container { display: flex; min-height: 100vh; }
+
+    /* Sidebar */
+    .sidebar {
+      width: 250px;
+      background: linear-gradient(135deg, #0a66c2, #8b5cf6);
+      color: white;
+      position: fixed;
+      top: 0; left: 0; height: 100vh;
+      padding: 20px;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+      transition: transform 0.3s;
+      z-index: 1000;
+    }
+    .sidebar.collapsed { transform: translateX(-100%); }
+    .sidebar .header {
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 30px;
+    }
+    .sidebar h2 { font-size: 1.5rem; font-weight: 600; }
+
+    .sidebar nav ul { list-style: none; }
+    .sidebar nav a {
+      display: flex; align-items: center;
+      padding: 12px 15px;
+      text-decoration: none;
+      color: white;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      transition: background 0.3s, transform 0.2s;
+    }
+    .sidebar nav a:hover { background: rgba(255,255,255,0.15); transform: translateX(5px); }
+    .sidebar nav a.active { background: rgba(255,255,255,0.25); font-weight: 600; }
+    .sidebar nav a i { margin-right: 10px; width: 20px; height: 20px; }
+
+    /* Buttons */
+    .logout-btn, .dark-mode-toggle {
+      position: absolute; left: 20px;
+      background: none; border: none; color: white;
+      cursor: pointer; font-size: 1rem;
+      min-height: 44px; padding: 10px;
+      border-radius: 8px; display: flex; align-items: center;
+      transition: background 0.3s;
+    }
+    .logout-btn:hover, .dark-mode-toggle:hover { background: rgba(255,255,255,0.15); }
+    .logout-btn i, .dark-mode-toggle i { margin-right: 10px; }
+    .logout-btn { bottom: 80px; }
+    .dark-mode-toggle { bottom: 20px; }
+
+    /* Main Content */
+    .main-content {
+      flex: 1; margin-left: 250px; padding: 20px;
+      transition: margin-left 0.3s;
+    }
+    .main-content.shifted { margin-left: 0; }
+
+    /* Mobile */
+    .hamburger {
+      display: none;
+      position: fixed; top: 20px; left: 20px;
+      background: #0a66c2; color: white;
+      border: none; padding: 10px;
+      border-radius: 8px; cursor: pointer;
+      z-index: 1001;
+    }
+    .hamburger:hover { background: #084a8a; }
+
+    @media (max-width: 768px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); }
+      .main-content { margin-left: 0; }
+      .hamburger { display: block; }
+    }
+
+    .page { display: none; }
+    .page.active { display: block; animation: fadeIn 0.4s ease-in-out; }
+    .page h1 { color: #0a66c2; margin-bottom: 10px; }
+    body.dark .page h1 { color: #8b5cf6; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <aside class="sidebar" id="sidebar">
+      <div class="header">
+        <i data-lucide="briefcase"></i>
+        <h2>Interview Prep</h2>
+      </div>
+      <nav>
+        <ul>
+          <li><a href="#" data-page="dashboard" class="active"><i data-lucide="home"></i> Dashboard</a></li>
+          <li><a href="#" data-page="dsa"><i data-lucide="code"></i> DSA Practice</a></li>
+          <li><a href="#" data-page="os"><i data-lucide="cpu"></i> OS & DBMS</a></li>
+          <li><a href="qn.html" data-page="hr"><i data-lucide="message-circle"></i> HR Questions</a></li>
+
+          <li><a href="Videocall feature\WEB_UIKITS.html"><i data-lucide="users"></i> Mock Interviews</a></li>
+
+          <li><a href="#" data-page="resources"><i data-lucide="book"></i> Resources</a></li>
+          <li><a href="#" data-page="profile"><i data-lucide="user"></i> Profile</a></li>
+        </ul>
+      </nav>
+      <button class="logout-btn" id="logoutBtn"><i data-lucide="log-out"></i> Logout</button>
+      <button class="dark-mode-toggle" id="darkModeToggle"><i data-lucide="moon"></i> Toggle Dark</button>
+    </aside>
+
+    <button class="hamburger" id="hamburger">☰</button>
+
+    <main class="main-content" id="mainContent">
+      <div id="dashboard" class="page active">
+        <h1>Dashboard</h1>
+        <p>Track your preparation progress and recent performance.</p>
+      </div>
+      <div id="dsa" class="page">
+        <h1>DSA Practice</h1>
+        <p>Work on coding challenges and get instant feedback.</p>
+      </div>
+      <div id="os" class="page">
+        <h1>OS & DBMS</h1>
+        <p>Practice core computer science topics essential for technical interviews.</p>
+      </div>
+      
+      <div id="mock" class="page">
+        <h1>Mock Interviews</h1>
+        <p>Simulate real interviews and get performance insights.</p>
+      </div>
+      <div id="resources" class="page">
+        <h1>Resources</h1>
+        <p>Explore study materials, guides, and expert interview tips.</p>
+      </div>
+      <div id="profile" class="page">
+        <h1>Profile</h1>
+        <p>Update your preferences and view learning history.</p>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    // Dark mode
+    const darkToggle = document.getElementById('darkModeToggle');
+    const body = document.body;
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') body.classList.add('dark');
+
+    darkToggle.addEventListener('click', () => {
+      body.classList.toggle('dark');
+      localStorage.setItem('theme', body.classList.contains('dark') ? 'dark' : 'light');
+      lucide.createIcons();
+    });
+
+    // Logout
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      alert('Logged out successfully!');
+      window.location.href = 'login.html'; // redirect example
+    });
+
+    // Sidebar navigation
+    const sidebarLinks = document.querySelectorAll('.sidebar nav a');
+    const pages = document.querySelectorAll('.page');
+    sidebarLinks.forEach(link => {
+      link.addEventListener('click', e => {
+        e.preventDefault();
+        const id = link.getAttribute('data-page');
+        sidebarLinks.forEach(l => l.classList.remove('active'));
+        pages.forEach(p => p.classList.remove('active'));
+        link.classList.add('active');
+        document.getElementById(id).classList.add('active');
+        if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+      });
+    });
+
+    // Mobile hamburger
+    const hamburger = document.getElementById('hamburger');
+    const sidebar = document.getElementById('sidebar');
+    hamburger.addEventListener('click', () => sidebar.classList.toggle('open'));
+    document.addEventListener('click', e => {
+      if (window.innerWidth <= 768 && !sidebar.contains(e.target) && !hamburger.contains(e.target))
+        sidebar.classList.remove('open');
+    });
+  </script>
+</body>
+</html>

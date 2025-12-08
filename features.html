@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mock Interview – Zego + Sidebar</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Icons (optional for sidebar) -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Poppins", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: linear-gradient(135deg, #0a66c2 0%, #8b5cf6 100%);
+            color: #fff;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            padding: 20px;
+            box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+            z-index: 100;
+        }
+
+        .sidebar .header {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .sidebar .header i {
+            width: 24px;
+            height: 24px;
+        }
+
+        .sidebar h2 {
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+
+        .sidebar .subtitle {
+            font-size: 0.75rem;
+            opacity: 0.85;
+            margin-bottom: 20px;
+        }
+
+        .sidebar nav ul {
+            list-style: none;
+        }
+
+        .sidebar nav li {
+            margin-bottom: 8px;
+        }
+
+        .sidebar nav a {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            text-decoration: none;
+            color: #fff;
+            border-radius: 8px;
+            min-height: 40px;
+            font-size: 0.9rem;
+            opacity: 0.95;
+            transition: background 0.2s ease, transform 0.1s ease, opacity 0.2s ease;
+        }
+
+        .sidebar nav a i {
+            margin-right: 10px;
+            width: 20px;
+            height: 20px;
+        }
+
+        .sidebar nav a:hover {
+            background: rgba(255, 255, 255, 0.12);
+            transform: translateX(3px);
+        }
+
+        .sidebar nav a.active {
+            background: rgba(255, 255, 255, 0.2);
+            font-weight: 500;
+        }
+
+        .sidebar-footer {
+            position: absolute;
+            left: 20px;
+            right: 20px;
+            bottom: 20px;
+            font-size: 0.8rem;
+            opacity: 0.9;
+        }
+
+        /* Main content */
+        .main-content {
+            flex: 1;
+            margin-left: 250px; /* same as sidebar width */
+            padding: 20px;
+            min-height: 100vh;
+            background: #f3f4f6;
+        }
+
+        .page-header {
+            margin-bottom: 10px;
+        }
+
+        .page-header h1 {
+            font-size: 1.3rem;
+            color: #0a66c2;
+            margin-bottom: 4px;
+        }
+
+        .page-header p {
+            font-size: 0.9rem;
+            color: #6b7280;
+        }
+
+        /* Zego root container inside main */
+        #root {
+            margin-top: 12px;
+            width: 100%;
+            height: calc(100vh - 110px); /* header + padding */
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000; /* so you see area even before video loads */
+        }
+
+        /* Simple responsive tweak for small screens */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease-in-out;
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0;
+            }
+            .menu-toggle {
+                position: fixed;
+                top: 16px;
+                left: 16px;
+                z-index: 120;
+                background: #0a66c2;
+                color: #fff;
+                border: none;
+                border-radius: 8px;
+                padding: 8px 10px;
+                cursor: pointer;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Mobile toggle button -->
+        <button class="menu-toggle" id="menuToggle" style="display:none;">☰</button>
+
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="header">
+                <i data-lucide="briefcase"></i>
+                <div>
+                    <h2>Interview Prep</h2>
+                    <div class="subtitle">Mock Interview Room</div>
+                </div>
+            </div>
+
+            <nav>
+                <ul>
+                    <!-- Change hrefs to your actual pages if needed -->
+                    <li><a href="#" class="active"><i data-lucide="video"></i> Mock Interview</a></li>
+                    <li><a href="#"><i data-lucide="home"></i> Dashboard</a></li>
+                    <li><a href="#"><i data-lucide="target"></i> Practice</a></li>
+                    <li><a href="#"><i data-lucide="file-text"></i> Resources</a></li>
+                    <li><a href="#"><i data-lucide="user"></i> Profile</a></li>
+                </ul>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div>Tip: Share the room link with your friend to practice live interviews together.</div>
+            </div>
+        </aside>
+
+        <!-- Main content with Zego root -->
+        <main class="main-content">
+            <header class="page-header">
+                <h1>Live Mock Interview</h1>
+                <p>The video conference interface below is powered by ZegoCloud.</p>
+            </header>
+
+            <div id="root"></div>
+        </main>
+    </div>
+
+    <!-- ZegoCloud SDK -->
+    <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
+
+    <script>
+        // Initialize sidebar icons
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+
+        // Mobile sidebar toggle
+        const sidebar = document.getElementById('sidebar');
+        const menuToggle = document.getElementById('menuToggle');
+
+        function handleResize() {
+            if (window.innerWidth <= 768) {
+                menuToggle.style.display = 'block';
+            } else {
+                menuToggle.style.display = 'none';
+                sidebar.classList.remove('open');
+            }
+        }
+
+        window.addEventListener('resize', handleResize);
+        handleResize();
+
+        if (menuToggle) {
+            menuToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('open');
+            });
+        }
+
+        // === ZegoCloud mock interview code (your original logic) ===
+        window.onload = function () {
+            function getUrlParams(url) {
+                let urlStr = url.split('?')[1] || "";
+                const urlSearchParams = new URLSearchParams(urlStr);
+                const result = Object.fromEntries(urlSearchParams.entries());
+                return result;
+            }
+
+            const roomID = getUrlParams(window.location.href)['roomID'] || (Math.floor(Math.random() * 10000) + "");
+            const userID = Math.floor(Math.random() * 10000) + "";
+            const userName = "userName" + userID;
+            const appID = 316913873;
+            const serverSecret = "9954f4fc821cf38b6cb5813bff183171";
+
+            if (!window.ZegoUIKitPrebuilt) {
+                console.error("ZegoUIKitPrebuilt not loaded. Check network or script URL.");
+                document.getElementById('root').innerHTML =
+                    '<p style="color:white;text-align:center;margin-top:20px;">Failed to load Zego SDK. Open console for details.</p>';
+                return;
+            }
+
+            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
+                appID,
+                serverSecret,
+                roomID,
+                userID,
+                userName
+            );
+
+            const zp = ZegoUIKitPrebuilt.create(kitToken);
+            zp.joinRoom({
+                container: document.querySelector("#root"),
+                sharedLinks: [{
+                    name: 'Personal link',
+                    url: window.location.protocol + '//' + window.location.host + window.location.pathname + '?roomID=' + roomID,
+                }],
+                scenario: {
+                    mode: ZegoUIKitPrebuilt.VideoConference,
+                },
+
+                turnOnMicrophoneWhenJoining: true,
+                turnOnCameraWhenJoining: true,
+                showMyCameraToggleButton: true,
+                showMyMicrophoneToggleButton: true,
+                showAudioVideoSettingsButton: true,
+                showScreenSharingButton: true,
+                showTextChat: true,
+                showUserList: true,
+                maxUsers: 2,
+                layout: "Auto",
+                showLayoutButton: false,
+            });
+        };
+    </script>
+</body>
+</html>

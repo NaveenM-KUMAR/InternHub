@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interview Prep Dashboard</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+<header>
+    <div class="header-container">
+        <h1>Interview Prep AI</h1>
+        <div class="user-profile">
+            <span>Polly Gray</span>
+            <a href="#" class="logout">Logout</a>
+        </div>
+    </div>
+</header>
+
+<main>
+    <div class="dashboard-grid" id="roleGrid">
+        <!-- Role cards will be generated dynamically -->
+    </div>
+    <button id="addRoleBtn" class="add-btn"><i class="fa fa-plus"></i> Add New</button>
+</main>
+
+<!-- Modal for Questions -->
+<div id="questionModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2 id="roleTitle">Role</h2>
+        <div id="questionsContainer">
+            <!-- Questions will appear here -->
+        </div>
+    </div>
+</div>
+
+<script src="dashboard.js"></script>
+</body>
+</html>
